@@ -1,0 +1,52 @@
+# seliSlam Python dependencies
+# Install with:
+#   pip install -r requirements.txt --break-system-packages   (Jetson / system Python)
+#   pip install -r requirements.txt                           (venv / conda)
+#
+# ROS Noetic packages (installed via apt, not pip):
+#   ros-noetic-ros-base ros-noetic-cv-bridge ros-noetic-image-transport
+#   ros-noetic-tf2-ros ros-noetic-pcl-ros ros-noetic-message-filters
+
+# ── Core numerical ────────────────────────────────────────────────────────────
+numpy>=1.24,<2.0
+scipy>=1.10
+
+# ── Deep learning ─────────────────────────────────────────────────────────────
+# PyTorch: install the version matching your CUDA from https://pytorch.org
+# Desktop (CUDA 12.x):
+#   pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
+# Jetson AGX Xavier (JetPack 5.x — install from NVIDIA wheel):
+#   pip install torch-*.whl  (pre-built from NVIDIA NGC or jetson-containers)
+torch>=2.0          # comment out and install manually if on Jetson
+torchvision>=0.15   # comment out on Jetson
+
+# ── Segmentation ──────────────────────────────────────────────────────────────
+# MobileSAM (install from GitHub for latest version):
+#   pip install git+https://github.com/ChaoningZhang/MobileSAM.git
+mobile-sam>=1.0     ; python_version >= "3.8"
+
+# CLIP — use OpenAI's original or open_clip (one of these, not both):
+# Option A (OpenAI):
+#   pip install git+https://github.com/openai/CLIP.git
+# Option B (open_clip — pip-installable, recommended):
+open-clip-torch>=2.20
+
+# ── Computer vision ───────────────────────────────────────────────────────────
+opencv-python-headless>=4.8
+Pillow>=10.0
+
+# ── Point cloud ───────────────────────────────────────────────────────────────
+# open3d is optional (faster KNN than numpy brute-force):
+# open3d>=0.17            # comment out on Jetson (use open3d-python from NGC)
+
+# ── Utilities ─────────────────────────────────────────────────────────────────
+pytest>=7.0          # for running the test suite
+pyyaml>=6.0          # for reading YAML configs outside ROS
+
+# ── Python 3.12 inference server only ────────────────────────────────────────
+# (install these in the Python 3.12 environment that runs inference_server.py)
+# open-clip-torch>=2.20
+# mobile-sam>=1.0
+# torch>=2.3           # Blackwell sm_120 support requires torch >= 2.3
+# Pillow>=10.0
+# numpy>=1.24

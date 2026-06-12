@@ -1,0 +1,8 @@
+# QueryObject.srv
+# Ask the map manager for all objects matching a class label.
+string class_label
+float32 epsilon_g_max   # only return objects below this threshold
+---
+seliSlam/SemanticObject[] objects
+bool success
+string message

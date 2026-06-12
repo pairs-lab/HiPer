@@ -1,0 +1,5 @@
+# SaveMap.srv
+string filepath   # absolute path for the .npz map file
+---
+bool success
+string message

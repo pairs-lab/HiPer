@@ -1,0 +1,108 @@
+<!--
+seliSlam_jetson.launch
+======================
+SeLiSLAM deployment for Jetson AGX Xavier + RealSense D455.
+
+Key differences from desktop launch:
+  - seg/use_socket_bridge = true  (Python 3.12 server on port 9876)
+  - seg/device = cuda  (Jetson CUDA, not Blackwell sm_120)
+  - vio/freeze_encoder = true  (decoder-only updates, lighter compute)
+  - rviz disabled by default
+
+Prerequisites on Jetson:
+  1. Start the Python 3.12 inference server:
+       python3.12 scripts/inference_server.py --port 9876
+  2. Source ROS Noetic and this workspace:
+       source /opt/ros/noetic/setup.bash
+       source ~/seliSlam_ws/devel/setup.bash
+  3. Launch RealSense:
+       roslaunch realsense2_camera rs_camera.launch \
+         align_depth:=true enable_gyro:=true enable_accel:=true
+
+Usage:
+  roslaunch seliSlam seliSlam_jetson.launch session_id:=1
+-->
+<launch>
+
+  <!-- ── Arguments ─────────────────────────────────────────────────── -->
+  <arg name="config"         default="$(find seliSlam)/config/params_jetson.yaml"/>
+  <arg name="session_id"     default="0"/>
+  <arg name="map_dir"        default="$(env HOME)/.seliSlam/maps"/>
+  <arg name="socket_port"    default="9876"/>
+  <arg name="rviz"           default="false"/>
+
+  <!-- ── Load parameters ───────────────────────────────────────────── -->
+  <rosparam file="$(arg config)" command="load" ns="/seliSlam"/>
+  <param name="/seliSlam/session_id"          value="$(arg session_id)"/>
+  <param name="/seliSlam/map_mgr/map_save_dir" value="$(arg map_dir)"/>
+  <param name="/seliSlam/seg/socket_port"     value="$(arg socket_port)"/>
+
+  <!-- ── RealSense camera (if not already launched separately) ─────── -->
+  <!-- Uncomment if you are not launching the camera node elsewhere:
+  <include file="$(find realsense2_camera)/launch/rs_camera.launch">
+    <arg name="align_depth"   value="true"/>
+    <arg name="enable_gyro"   value="true"/>
+    <arg name="enable_accel"  value="true"/>
+    <arg name="color_width"   value="640"/>
+    <arg name="color_height"  value="480"/>
+    <arg name="color_fps"     value="30"/>
+    <arg name="depth_width"   value="640"/>
+    <arg name="depth_height"  value="480"/>
+    <arg name="depth_fps"     value="30"/>
+  </include>
+  -->
+
+  <!-- ── VIO front-end ─────────────────────────────────────────────── -->
+  <node pkg="seliSlam" type="vio_frontend_node.py"
+        name="vio_frontend" output="screen">
+    <param name="vio/freeze_encoder" value="true"/>
+    <remap from="/camera/color/image_raw"
+           to="/camera/color/image_raw"/>
+    <remap from="/camera/depth/image_rect_raw"
+           to="/camera/aligned_depth_to_color/image_raw"/>
+    <remap from="/mavros/imu/data"
+           to="/camera/imu"/>
+  </node>
+
+  <!-- ── Segmentation (socket bridge to Python 3.12 server) ───────── -->
+  <node pkg="seliSlam" type="segmentation_node.py"
+        name="segmentation" output="screen">
+    <param name="seg/use_socket_bridge" value="true"/>
+    <param name="seg/socket_host"       value="localhost"/>
+    <param name="seg/socket_port"       value="$(arg socket_port)"/>
+  </node>
+
+  <!-- ── Ephemerality ──────────────────────────────────────────────── -->
+  <node pkg="seliSlam" type="ephemerality_node.py"
+        name="ephemerality" output="screen"/>
+
+  <!-- ── Object encoder ────────────────────────────────────────────── -->
+  <node pkg="seliSlam" type="object_encoder_node.py"
+        name="object_encoder" output="screen">
+    <!-- Use lighter PointNet on Jetson -->
+    <param name="encoder/backbone"  value="pointnet"/>
+    <param name="encoder/embed_dim" value="256"/>
+  </node>
+
+  <!-- ── Map manager ───────────────────────────────────────────────── -->
+  <node pkg="seliSlam" type="map_manager_node.py"
+        name="map_manager" output="screen"/>
+
+  <!-- ── Camera → base_link TF (adjust for your UAV mount) ────────── -->
+  <!-- 
+    Example: camera is mounted 10 cm forward, 5 cm down, 
+    rotated -90° around Z (pointing forward on the UAV).
+    Replace with your actual extrinsics.
+  -->
+  <node pkg="tf2_ros" type="static_transform_publisher"
+        name="camera_to_base"
+        args="0.10 0.0 -0.05 -1.5708 0 0 base_link camera_color_optical_frame"/>
+
+  <!-- ── Optional RViz (over SSH with X forwarding) ────────────────── -->
+  <group if="$(arg rviz)">
+    <node pkg="rviz" type="rviz" name="rviz"
+          args="-d $(find seliSlam)/config/seliSlam.rviz"
+          output="screen"/>
+  </group>
+
+</launch>

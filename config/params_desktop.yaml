@@ -1,0 +1,80 @@
+# seliSlam desktop configuration
+# Loaded by seliSlam_desktop.launch into the /seliSlam namespace.
+
+# ── Shared frames ────────────────────────────────────────────────────────────
+map_frame:    "map"
+base_frame:   "base_link"
+camera_frame: "camera_color_optical_frame"
+session_id:   0
+
+# ── VIO front-end ─────────────────────────────────────────────────────────────
+vio:
+  replay_buffer_size:          100
+  replay_similarity_threshold: 0.95
+  replay_batch_size:           3
+  update_cycles:               5
+  freeze_encoder:              true   # decoder-only updates
+  min_keyframe_distance:       0.2    # metres
+
+# ── Segmentation ──────────────────────────────────────────────────────────────
+seg:
+  model_name:            "mobile_sam"
+  clip_model:            "ViT-B/32"
+  device:                "cuda"
+  confidence_threshold:  0.5
+  max_instances_per_frame: 32
+  use_socket_bridge:     false
+  socket_host:           "localhost"
+  socket_port:           9876
+
+# ── Ephemerality ──────────────────────────────────────────────────────────────
+eph:
+  tau_l:           0.5      # local threshold: below = static
+  tau_g:           0.7      # global threshold: below = in static map
+  sigma_occupied:  0.1
+  sigma_free:      0.3
+  bpf_alpha:       0.5
+  bpf_beta:        0.1
+  knn_k:           5
+  default_lambda:  1.0e-4   # default survival decay rate (s^-1)
+  beta_concentration: 10.0  # pseudo-count when seeding Beta from a scalar eps_g
+  tau_v:           0.02     # max Beta variance to commit/prune (confidence gate)
+  # Class-conditioned survival rates lambda_c (s^-1); 1/lambda is the
+  # characteristic lifetime (paper Table I).
+  class_priors:
+    building:    1.0e-9     # ~30 years
+    wall:        1.0e-9
+    tree:        1.0e-7     # ~4 months
+    lamppost:    1.0e-7
+    bench:       3.0e-6     # ~4 days
+    "trash can": 3.0e-6
+    car:         1.0e-4     # ~3 hours
+    vehicle:     1.0e-4
+    bicycle:     2.0e-4     # ~1.4 hours
+    person:      2.0e-3     # ~8 minutes
+
+# ── Object encoder ────────────────────────────────────────────────────────────
+encoder:
+  embed_dim:                   256
+  backbone:                    "dgcnn"   # best quality on desktop GPU
+  num_points:                  1024
+  knn_k:                       10
+  altitude_jitter_range:       5.0       # metres (UAV augmentation)
+  angle_jitter_deg:            30.0
+  memory_bank_k:               10
+  reid_confidence_threshold:   0.75
+  vlm_ensemble_weight:         0.5
+  sigma_u:                     0.25      # scale in uncertainty down-weight gamma
+  tau_u:                       0.5       # combined-uncertainty ceiling for firm match
+
+# ── Map manager ───────────────────────────────────────────────────────────────
+map_mgr:
+  map_frame:           "map"
+  map_save_dir:        "~/.seliSlam/maps"
+  autosave_on_shutdown: true
+  sparsify_kl_budget:  0.01
+  merge_distance_m:    0.5
+  min_observations:    5
+  prune_eg_threshold:  0.95   # pruning rule (i), gated by Beta variance
+  absent_sessions_prune: 3    # pruning rule (iii)
+  eps_assignment_radius: 2.0  # metres; eps_l point-to-object assignment

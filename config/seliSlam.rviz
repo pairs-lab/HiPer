@@ -1,0 +1,91 @@
+Panels:
+  - Class: rviz/Displays
+    Name: Displays
+  - Class: rviz/Views
+    Name: Views
+
+Visualization Manager:
+  Class: ""
+  Displays:
+    - Alpha: 1
+      Class: rviz/Grid
+      Color: 160; 160; 164
+      Name: Grid
+      Plane Cell Count: 20
+      Cell Size: 1
+
+    - Class: rviz/TF
+      Name: TF
+      Enabled: true
+      Frame Timeout: 15
+
+    - Alpha: 1
+      Axes Length: 0.3
+      Class: rviz/Odometry
+      Name: Odometry
+      Topic: /seliSlam/odometry
+      Enabled: true
+
+    - Class: rviz/Path
+      Color: 0; 255; 0
+      Name: Trajectory
+      Topic: /seliSlam/pose_graph_edges
+      Enabled: true
+
+    - Class: rviz/PointCloud2
+      Color Transformer: RGB8
+      Name: Keyframe Cloud
+      Topic: /seliSlam/keyframe_pointcloud
+      Style: Points
+      Size (Pixels): 2
+      Enabled: true
+
+    - Class: rviz/PointCloud2
+      Color Transformer: FlatColor
+      Color: 0; 200; 0
+      Name: Static Cloud
+      Topic: /seliSlam/static_cloud
+      Style: Points
+      Size (Pixels): 2
+      Enabled: true
+
+    - Class: rviz/PointCloud2
+      Color Transformer: FlatColor
+      Color: 255; 50; 50
+      Name: Dynamic Cloud
+      Topic: /seliSlam/dynamic_cloud
+      Style: Points
+      Size (Pixels): 3
+      Enabled: true
+
+    - Class: rviz/MarkerArray
+      Name: LTM Objects
+      Topic: /seliSlam/ltm_objects_viz
+      Enabled: true
+
+    - Class: rviz/Image
+      Name: RGB Image
+      Topic: /camera/color/image_raw
+      Enabled: true
+
+    - Class: rviz/Image
+      Name: Depth Prediction
+      Topic: /seliSlam/depth
+      Enabled: true
+
+    - Class: rviz/Image
+      Name: Segmentation
+      Topic: /seliSlam/seg_viz
+      Enabled: true
+
+  Global Options:
+    Background Color: 48; 48; 48
+    Fixed Frame: map
+
+  Views:
+    Current:
+      Class: rviz/Orbit
+      Distance: 15
+      Pitch: 0.7
+      Target Frame: <Fixed Frame>
+      Yaw: 0.8

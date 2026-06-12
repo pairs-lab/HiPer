@@ -1,0 +1,6 @@
+# LoadMap.srv
+string filepath   # absolute path to the .npz map file to load
+---
+bool success
+string message
+uint32 num_objects_loaded

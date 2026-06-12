@@ -1,0 +1,61 @@
+<!--
+launch/pretrain_vio.launch
+===========================
+Convenience roslaunch wrapper for offline VIO pre-training.
+Does NOT require a running ROS master — it just calls the
+Python script directly via a <node> block.
+
+Usage (bag):
+  roslaunch seliSlam pretrain_vio.launch \
+    bag:=/data/flight01.bag epochs:=25
+
+Usage (image folder):
+  roslaunch seliSlam pretrain_vio.launch \
+    img_dir:=/data/cityscapes epochs:=25
+
+The trained checkpoint is saved to ~/.seliSlam/checkpoints/generalizer.pt
+and will be loaded automatically by vio_frontend_node at the next session.
+-->
+<launch>
+  <arg name="bag"           default=""/>
+  <arg name="img_dir"       default=""/>
+  <arg name="image_topic"   default="/camera/color/image_raw"/>
+  <arg name="depth_topic"   default="/camera/depth/image_rect_raw"/>
+  <arg name="epochs"        default="25"/>
+  <arg name="steps"         default="200"/>
+  <arg name="batch"         default="4"/>
+  <arg name="lr"            default="0.0001"/>
+  <arg name="device"        default="cuda"/>
+  <arg name="out"           default="$(env HOME)/.seliSlam/checkpoints/generalizer.pt"/>
+  <arg name="fx"            default="385.19"/>
+  <arg name="fy"            default="385.19"/>
+  <arg name="cx"            default="321.66"/>
+  <arg name="cy"            default="239.80"/>
+
+  <!-- Build the argument string dynamically -->
+  <arg name="bag_args"
+       default="--bag $(arg bag)"
+       if="$(eval arg('bag') != '')"/>
+  <arg name="bag_args"
+       default="--img-dir $(arg img_dir)"
+       unless="$(eval arg('bag') != '')"/>
+
+  <node pkg="seliSlam" type="pretrain_vio.py" name="pretrain_vio"
+        output="screen" required="true">
+    <param name="args" value="
+      $(arg bag_args)
+      --image-topic $(arg image_topic)
+      --depth-topic $(arg depth_topic)
+      --epochs      $(arg epochs)
+      --steps-per-epoch $(arg steps)
+      --batch-size  $(arg batch)
+      --lr          $(arg lr)
+      --device      $(arg device)
+      --out         $(arg out)
+      --fx          $(arg fx)
+      --fy          $(arg fy)
+      --cx          $(arg cx)
+      --cy          $(arg cy)
+    "/>
+  </node>
+</launch>

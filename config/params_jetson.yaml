@@ -1,0 +1,75 @@
+# seliSlam Jetson AGX Xavier configuration
+# Tuned for JetPack 5.x + ROS Noetic + RealSense D455.
+# Socket bridge delegates VLM inference to Python 3.12 server.
+
+map_frame:    "map"
+base_frame:   "base_link"
+camera_frame: "camera_color_optical_frame"
+session_id:   0
+
+vio:
+  replay_buffer_size:          50      # smaller buffer — less RAM
+  replay_similarity_threshold: 0.95
+  replay_batch_size:           2       # lighter batch on Jetson
+  update_cycles:               3       # fewer cycles — real-time constraint
+  freeze_encoder:              true
+  min_keyframe_distance:       0.3     # slightly larger to reduce rate
+
+seg:
+  model_name:            "mobile_sam"
+  clip_model:            "ViT-B/32"
+  device:                "cuda"        # Jetson CUDA (not sm_120)
+  confidence_threshold:  0.5
+  max_instances_per_frame: 16          # limit for memory
+  use_socket_bridge:     true          # ← key Jetson setting
+  socket_host:           "localhost"
+  socket_port:           9876
+
+eph:
+  tau_l:           0.5
+  tau_g:           0.7
+  sigma_occupied:  0.1
+  sigma_free:      0.3
+  bpf_alpha:       0.5
+  bpf_beta:        0.1
+  knn_k:           3                   # smaller k for speed on Jetson
+  default_lambda:  1.0e-4              # (s^-1)
+  beta_concentration: 10.0
+  tau_v:           0.02
+  class_priors:                        # lambda_c (s^-1), paper Table I
+    building:    1.0e-9
+    wall:        1.0e-9
+    tree:        1.0e-7
+    lamppost:    1.0e-7
+    bench:       3.0e-6
+    "trash can": 3.0e-6
+    car:         1.0e-4
+    vehicle:     1.0e-4
+    bicycle:     2.0e-4
+    person:      2.0e-3
+
+encoder:
+  embed_dim:                   256
+  backbone:                    "pointnet"   # lighter than DGCNN on Jetson
+  num_points:                  512          # smaller cloud for speed
+  knn_k:                       10
+  altitude_jitter_range:       5.0
+  angle_jitter_deg:            30.0
+  memory_bank_k:               5
+  reid_confidence_threshold:   0.75
+  vlm_ensemble_weight:         0.5
+  sigma_u:                     0.25
+  tau_u:                       0.5
+
+map_mgr:
+  map_frame:           "map"
+  map_save_dir:        "~/.seliSlam/maps"
+  autosave_on_shutdown: true
+  sparsify_kl_budget:  0.01
+  merge_distance_m:    0.5
+  min_observations:    5               # kept identical to desktop so all
+                                       # hyperparameters are fixed across
+                                       # experiments (paper Sec. IX-B)
+  prune_eg_threshold:  0.95
+  absent_sessions_prune: 3
+  eps_assignment_radius: 2.0
