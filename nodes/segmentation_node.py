@@ -2,7 +2,7 @@
 """
 segmentation_node.py
 ====================
-Open-vocabulary instance segmentation node for SeLiSLAM.
+Open-vocabulary instance segmentation node for HiPer.
 
 Runs MobileSAM for instance masks and CLIP/DINOv2 for per-instance
 semantic embeddings. Supports a socket-bridge mode that offloads
@@ -11,14 +11,14 @@ uses Python 3.8, but heavy VLMs run better on 3.12 with newer CUDA).
 
 Subscribed topics:
   /camera/color/image_raw        sensor_msgs/Image
-  /seliSlam/keyframe_pointcloud  sensor_msgs/PointCloud2  (sync trigger)
+  /hiper/keyframe_pointcloud  sensor_msgs/PointCloud2  (sync trigger)
 
 Published topics:
-  /seliSlam/instance_masks       sensor_msgs/Image
+  /hiper/instance_masks       sensor_msgs/Image
       Encoding: 16UC1, each pixel = instance id (0 = background)
-  /seliSlam/semantic_embeddings  std_msgs/Float32MultiArray
+  /hiper/semantic_embeddings  std_msgs/Float32MultiArray
       Flattened [N, embed_dim] array; metadata in a companion JSON string
-  /seliSlam/seg_viz              sensor_msgs/Image  (BGR debug overlay)
+  /hiper/seg_viz              sensor_msgs/Image  (BGR debug overlay)
 """
 
 import json
@@ -30,9 +30,9 @@ from sensor_msgs.msg import Image, PointCloud2
 from std_msgs.msg import Float32MultiArray, MultiArrayDimension, String
 import message_filters
 
-from seliSlam.common.params import get_params
-from seliSlam.common.ros_utils import make_header, RateMonitor
-from seliSlam.segmentation.seg_backend import SegmentationBackend
+from hiper.common.params import get_params
+from hiper.common.ros_utils import make_header, RateMonitor
+from hiper.segmentation.seg_backend import SegmentationBackend
 
 
 class SegmentationNode:
@@ -63,19 +63,19 @@ class SegmentationNode:
 
         # ── Publishers ────────────────────────────────────────────────────────
         self.pub_masks = rospy.Publisher(
-            "/seliSlam/instance_masks", Image, queue_size=5)
+            "/hiper/instance_masks", Image, queue_size=5)
         self.pub_embeddings = rospy.Publisher(
-            "/seliSlam/semantic_embeddings", Float32MultiArray, queue_size=5)
+            "/hiper/semantic_embeddings", Float32MultiArray, queue_size=5)
         self.pub_meta = rospy.Publisher(
-            "/seliSlam/seg_metadata", String, queue_size=5)
+            "/hiper/seg_metadata", String, queue_size=5)
         self.pub_viz = rospy.Publisher(
-            "/seliSlam/seg_viz", Image, queue_size=2)
+            "/hiper/seg_viz", Image, queue_size=2)
 
         # ── Subscribers (approximate time sync) ──────────────────────────────
         img_sub = message_filters.Subscriber(
             "/camera/color/image_raw", Image)
         kf_sub  = message_filters.Subscriber(
-            "/seliSlam/keyframe_pointcloud", PointCloud2)
+            "/hiper/keyframe_pointcloud", PointCloud2)
 
         self.ts = message_filters.ApproximateTimeSynchronizer(
             [img_sub, kf_sub], queue_size=5, slop=0.1)

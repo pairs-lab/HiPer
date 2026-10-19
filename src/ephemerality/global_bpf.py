@@ -1,5 +1,5 @@
 """
-seliSlam.ephemerality.global_bpf
+hiper.ephemerality.global_bpf
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Global (cross-session) ephemerality via the class-conditioned
 Bayesian Persistence Filter (BPF).

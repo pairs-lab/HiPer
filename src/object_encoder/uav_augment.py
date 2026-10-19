@@ -1,5 +1,5 @@
 """
-seliSlam.object_encoder.uav_augment
+hiper.object_encoder.uav_augment
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 UAV-specific point cloud augmentation for BYE encoder training.
 

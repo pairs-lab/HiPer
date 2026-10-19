@@ -23,19 +23,19 @@ Visualization Manager:
       Axes Length: 0.3
       Class: rviz/Odometry
       Name: Odometry
-      Topic: /seliSlam/odometry
+      Topic: /hiper/odometry
       Enabled: true
 
     - Class: rviz/Path
       Color: 0; 255; 0
       Name: Trajectory
-      Topic: /seliSlam/pose_graph_edges
+      Topic: /hiper/pose_graph_edges
       Enabled: true
 
     - Class: rviz/PointCloud2
       Color Transformer: RGB8
       Name: Keyframe Cloud
-      Topic: /seliSlam/keyframe_pointcloud
+      Topic: /hiper/keyframe_pointcloud
       Style: Points
       Size (Pixels): 2
       Enabled: true
@@ -44,7 +44,7 @@ Visualization Manager:
       Color Transformer: FlatColor
       Color: 0; 200; 0
       Name: Static Cloud
-      Topic: /seliSlam/static_cloud
+      Topic: /hiper/static_cloud
       Style: Points
       Size (Pixels): 2
       Enabled: true
@@ -53,14 +53,14 @@ Visualization Manager:
       Color Transformer: FlatColor
       Color: 255; 50; 50
       Name: Dynamic Cloud
-      Topic: /seliSlam/dynamic_cloud
+      Topic: /hiper/dynamic_cloud
       Style: Points
       Size (Pixels): 3
       Enabled: true
 
     - Class: rviz/MarkerArray
       Name: LTM Objects
-      Topic: /seliSlam/ltm_objects_viz
+      Topic: /hiper/ltm_objects_viz
       Enabled: true
 
     - Class: rviz/Image
@@ -70,12 +70,12 @@ Visualization Manager:
 
     - Class: rviz/Image
       Name: Depth Prediction
-      Topic: /seliSlam/depth
+      Topic: /hiper/depth
       Enabled: true
 
     - Class: rviz/Image
       Name: Segmentation
-      Topic: /seliSlam/seg_viz
+      Topic: /hiper/seg_viz
       Enabled: true
 
   Global Options:

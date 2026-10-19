@@ -16,9 +16,9 @@ Usage
   # Wheel-odometry pose source (no GPU needed) over the office scene
   python3 scripts/run_openloris_eval.py \
       --data-root /data/openloris --scene office --mode odom \
-      --map-dir /tmp/seliSlam_openloris --out results_office.json
+      --map-dir /tmp/hiper_openloris --out results_office.json
 
-  # Continual-VIO pose source (loads ~/.seliSlam/checkpoints/generalizer.pt)
+  # Continual-VIO pose source (loads ~/.hiper/checkpoints/generalizer.pt)
   python3 scripts/run_openloris_eval.py \
       --data-root /data/openloris --scene office --mode vio --device cuda
 
@@ -32,13 +32,13 @@ import json
 import sys
 from pathlib import Path
 
-# Allow running without catkin: register src/ as the seliSlam package
+# Allow running without catkin: register src/ as the hiper package
 _PKG_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_PKG_ROOT / "tests"))
-import conftest  # noqa: F401,E402  (registers seliSlam pkg + rospy stub)
+import conftest  # noqa: F401,E402  (registers hiper pkg + rospy stub)
 
-from seliSlam.evaluation.lifelong_runner import LifelongEvaluator  # noqa: E402
-from seliSlam.evaluation.openloris import (  # noqa: E402
+from hiper.evaluation.lifelong_runner import LifelongEvaluator  # noqa: E402
+from hiper.evaluation.openloris import (  # noqa: E402
     discover_scene_sessions,
     load_sequence,
 )
@@ -61,7 +61,7 @@ def build_vio(device: str, fx, fy, cx, cy):
     """Instantiate DepthPoseNet for offline inference (patched _img)."""
     import numpy as np
     import torch
-    from seliSlam.vio.depth_pose_net import DepthPoseNet
+    from hiper.vio.depth_pose_net import DepthPoseNet
 
     def _img_patched(self, msg):
         rgb = msg._rgb.astype(np.float32)
@@ -86,7 +86,7 @@ def main():
     ap.add_argument("--mode", choices=["odom", "vio"], default="odom")
     ap.add_argument("--stride", type=int, default=1,
                     help="Frame subsampling stride")
-    ap.add_argument("--map-dir", default="/tmp/seliSlam_openloris")
+    ap.add_argument("--map-dir", default="/tmp/hiper_openloris")
     ap.add_argument("--out", default="openloris_results.json")
     ap.add_argument("--device", default="cuda")
     ap.add_argument("--tau-pos", type=float, default=0.3,

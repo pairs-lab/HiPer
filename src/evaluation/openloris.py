@@ -1,5 +1,5 @@
 """
-seliSlam.evaluation.openloris
+hiper.evaluation.openloris
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Reader for the OpenLORIS-Scene lifelong SLAM dataset
 (https://lifelong-robotic-vision.github.io/dataset/scene).
@@ -185,7 +185,7 @@ def load_sequence(
     velocity comes from the wheel odometry twist (or finite differences).
     Images are NOT loaded here — see load_frame_images().
     """
-    from seliSlam.evaluation.trajectory_metrics import associate_timestamps
+    from hiper.evaluation.trajectory_metrics import associate_timestamps
 
     seq = OpenLorisSequence(seq_dir=seq_dir,
                             name=os.path.basename(os.path.normpath(seq_dir)))

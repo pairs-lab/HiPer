@@ -2,9 +2,9 @@
 tests/test_map_io.py
 ====================
 Unit tests for:
-  - seliSlam.map_io.object_record.ObjectRecord
-  - seliSlam.map_io.ltm_io.LTMIO
-  - seliSlam.map_io.sparsifier.KLSparsifier
+  - hiper.map_io.object_record.ObjectRecord
+  - hiper.map_io.ltm_io.LTMIO
+  - hiper.map_io.sparsifier.KLSparsifier
 
 Run with: python -m pytest tests/test_map_io.py -v
 """
@@ -18,9 +18,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 import numpy as np
 import pytest
 
-from seliSlam.map_io.object_record import ObjectRecord
-from seliSlam.map_io.ltm_io        import LTMIO
-from seliSlam.map_io.sparsifier     import KLSparsifier
+from hiper.map_io.object_record import ObjectRecord
+from hiper.map_io.ltm_io        import LTMIO
+from hiper.map_io.sparsifier     import KLSparsifier
 
 
 # ─────────────────────────────────────────────────────────────────────────────

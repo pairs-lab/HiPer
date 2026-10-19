@@ -2,7 +2,7 @@
 """
 ephemerality_node.py
 ====================
-Two-stage semantic ephemerality node for SeLiSLAM.
+Two-stage semantic ephemerality node for HiPer.
 
 Implements ELite-style local + global ephemerality (Gil et al. 2025)
 extended with class-conditioned Bayesian persistence filter priors
@@ -17,15 +17,15 @@ Global ephemerality (ε_g):
   with a class-conditioned exponential survival prior.
 
 Subscribed topics:
-  /seliSlam/keyframe_pointcloud  sensor_msgs/PointCloud2
-  /seliSlam/instance_masks       sensor_msgs/Image
-  /seliSlam/seg_metadata         std_msgs/String  (JSON)
-  /seliSlam/ltm_loaded           seliSlam/LongTermMap  (on session start)
+  /hiper/keyframe_pointcloud  sensor_msgs/PointCloud2
+  /hiper/instance_masks       sensor_msgs/Image
+  /hiper/seg_metadata         std_msgs/String  (JSON)
+  /hiper/ltm_loaded           hiper/LongTermMap  (on session start)
 
 Published topics:
-  /seliSlam/ephemerality_map     seliSlam/EphemeralityMap
-  /seliSlam/static_cloud         sensor_msgs/PointCloud2  (ε_l < tau_l)
-  /seliSlam/dynamic_cloud        sensor_msgs/PointCloud2  (ε_l >= tau_l)
+  /hiper/ephemerality_map     hiper/EphemeralityMap
+  /hiper/static_cloud         sensor_msgs/PointCloud2  (ε_l < tau_l)
+  /hiper/dynamic_cloud        sensor_msgs/PointCloud2  (ε_l >= tau_l)
 """
 
 import json
@@ -38,15 +38,15 @@ import message_filters
 from sensor_msgs.msg import Image, PointCloud2
 from std_msgs.msg import String
 
-from seliSlam.common.params import get_params
-from seliSlam.common.ros_utils import (
+from hiper.common.params import get_params
+from hiper.common.ros_utils import (
     make_header, pointcloud2_to_xyz, xyz_to_pointcloud2, RateMonitor
 )
-from seliSlam.ephemerality.local_bpf import LocalEphemeralityBPF
-from seliSlam.ephemerality.global_bpf import GlobalEphemeralityBPF
+from hiper.ephemerality.local_bpf import LocalEphemeralityBPF
+from hiper.ephemerality.global_bpf import GlobalEphemeralityBPF
 
 try:
-    from seliSlam.msg import EphemeralityMap, LongTermMap
+    from hiper.msg import EphemeralityMap, LongTermMap
 except ImportError:
     rospy.logwarn("[ephemerality] Custom msgs not yet compiled — "
                   "run catkin_make first.")
@@ -84,28 +84,28 @@ class EphemeralityNode:
 
         # ── Publishers ────────────────────────────────────────────────────────
         self.pub_eph_map   = rospy.Publisher(
-            "/seliSlam/ephemerality_map", EphemeralityMap
+            "/hiper/ephemerality_map", EphemeralityMap
             if EphemeralityMap else String, queue_size=2)
         self.pub_static    = rospy.Publisher(
-            "/seliSlam/static_cloud", PointCloud2, queue_size=5)
+            "/hiper/static_cloud", PointCloud2, queue_size=5)
         self.pub_dynamic   = rospy.Publisher(
-            "/seliSlam/dynamic_cloud", PointCloud2, queue_size=5)
+            "/hiper/dynamic_cloud", PointCloud2, queue_size=5)
 
         # ── Subscribers ───────────────────────────────────────────────────────
         cloud_sub = message_filters.Subscriber(
-            "/seliSlam/keyframe_pointcloud", PointCloud2)
+            "/hiper/keyframe_pointcloud", PointCloud2)
         mask_sub  = message_filters.Subscriber(
-            "/seliSlam/instance_masks", Image)
+            "/hiper/instance_masks", Image)
 
         self.ts = message_filters.ApproximateTimeSynchronizer(
             [cloud_sub, mask_sub], queue_size=10, slop=0.1)
         self.ts.registerCallback(self._cloud_mask_callback)
 
-        rospy.Subscriber("/seliSlam/seg_metadata", String,
+        rospy.Subscriber("/hiper/seg_metadata", String,
                          self._meta_callback, queue_size=10)
 
         if LongTermMap is not None:
-            rospy.Subscriber("/seliSlam/ltm_loaded", LongTermMap,
+            rospy.Subscriber("/hiper/ltm_loaded", LongTermMap,
                              self._ltm_callback, queue_size=1)
 
         self._rate_monitor = RateMonitor("ephemerality", window=30)

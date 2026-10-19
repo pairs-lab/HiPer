@@ -1,5 +1,5 @@
 """
-seliSlam.object_encoder.bye_encoder
+hiper.object_encoder.bye_encoder
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Per-scene contrastive point cloud encoder.
 
@@ -23,7 +23,7 @@ import os
 import numpy as np
 import rospy
 
-_CKPT_PATH = os.path.expanduser("~/.seliSlam/checkpoints/bye_encoder.pt")
+_CKPT_PATH = os.path.expanduser("~/.hiper/checkpoints/bye_encoder.pt")
 
 try:
     import torch

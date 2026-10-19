@@ -2,7 +2,7 @@
 tests/test_association.py
 =========================
 Unit tests for the score-level VLM-ensemble association
-(seliSlam.object_encoder.association): Eq. (13) score fusion,
+(hiper.object_encoder.association): Eq. (13) score fusion,
 gamma uncertainty down-weighting, Hungarian one-to-one assignment,
 and the tau_u tentative-match gate.
 """
@@ -10,7 +10,7 @@ and the tau_u tentative-match gate.
 import numpy as np
 import pytest
 
-from seliSlam.object_encoder.association import ensemble_associate
+from hiper.object_encoder.association import ensemble_associate
 
 
 def _unit(v):

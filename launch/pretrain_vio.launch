@@ -6,14 +6,14 @@ Does NOT require a running ROS master — it just calls the
 Python script directly via a <node> block.
 
 Usage (bag):
-  roslaunch seliSlam pretrain_vio.launch \
+  roslaunch hiper pretrain_vio.launch \
     bag:=/data/flight01.bag epochs:=25
 
 Usage (image folder):
-  roslaunch seliSlam pretrain_vio.launch \
+  roslaunch hiper pretrain_vio.launch \
     img_dir:=/data/cityscapes epochs:=25
 
-The trained checkpoint is saved to ~/.seliSlam/checkpoints/generalizer.pt
+The trained checkpoint is saved to ~/.hiper/checkpoints/generalizer.pt
 and will be loaded automatically by vio_frontend_node at the next session.
 -->
 <launch>
@@ -26,7 +26,7 @@ and will be loaded automatically by vio_frontend_node at the next session.
   <arg name="batch"         default="4"/>
   <arg name="lr"            default="0.0001"/>
   <arg name="device"        default="cuda"/>
-  <arg name="out"           default="$(env HOME)/.seliSlam/checkpoints/generalizer.pt"/>
+  <arg name="out"           default="$(env HOME)/.hiper/checkpoints/generalizer.pt"/>
   <arg name="fx"            default="385.19"/>
   <arg name="fy"            default="385.19"/>
   <arg name="cx"            default="321.66"/>
@@ -40,7 +40,7 @@ and will be loaded automatically by vio_frontend_node at the next session.
        default="--img-dir $(arg img_dir)"
        unless="$(eval arg('bag') != '')"/>
 
-  <node pkg="seliSlam" type="pretrain_vio.py" name="pretrain_vio"
+  <node pkg="hiper" type="pretrain_vio.py" name="pretrain_vio"
         output="screen" required="true">
     <param name="args" value="
       $(arg bag_args)

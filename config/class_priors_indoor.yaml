@@ -1,0 +1,138 @@
+# Indoor class-conditioned survival priors for the open-vocabulary
+# persistence belief (paper Table I, indoor). Written 2026-10-18, BEFORE any
+# experimental data was generated, from common-sense expectations of how
+# long an object of each class stays where it was last seen.
+#
+# Values are characteristic lifetimes in DAYS (1/lambda_c); the loader
+# converts them to lambda_c = 1 / (days * 86400) in s^-1.
+# Keys are the AI2-THOR object types; the CLIP zero-shot vocabulary uses the
+# same names split into words ("AlarmClock" -> "alarm clock").
+#
+# The simulator's ground-truth change process does NOT use this table: it
+# draws hazards by affordance group only (fixed / moveable / pickupable).
+default_days: 30
+lifetimes_days:
+  # perishable or consumed within about a day
+  Apple: 1
+  Bread: 1
+  Egg: 1
+  Lettuce: 1
+  Potato: 1
+  Tomato: 1
+  Newspaper: 1
+  GarbageBag: 3
+  # small items handled daily
+  CellPhone: 1
+  KeyChain: 1
+  CreditCard: 1
+  Watch: 1
+  RemoteControl: 2
+  Mug: 2
+  Cup: 2
+  Bowl: 2
+  Plate: 2
+  Fork: 2
+  Spoon: 2
+  ButterKnife: 2
+  Knife: 2
+  Spatula: 3
+  Ladle: 3
+  Pen: 2
+  Pencil: 2
+  Laptop: 2
+  Cloth: 2
+  DishSponge: 3
+  HandTowel: 3
+  Towel: 3
+  SoapBar: 7
+  Bottle: 2
+  WineBottle: 3
+  Boots: 3
+  Kettle: 3
+  Pot: 3
+  Pan: 3
+  # small durable items, moved weekly
+  ToiletPaper: 5
+  PaperTowelRoll: 5
+  TissueBox: 7
+  SprayBottle: 7
+  SoapBottle: 7
+  SaltShaker: 7
+  PepperShaker: 7
+  AluminumFoil: 7
+  BaseballBat: 7
+  BasketBall: 7
+  TennisRacket: 7
+  Dumbbell: 7
+  Pillow: 7
+  TeddyBear: 7
+  VacuumCleaner: 7
+  Book: 14
+  CD: 14
+  WateringCan: 14
+  ScrubBrush: 14
+  Box: 14
+  LaundryHamper: 14
+  Chair: 14
+  Stool: 14
+  Plunger: 30
+  Footstool: 30
+  Candle: 30
+  Ottoman: 30
+  # decor and furnishings, moved every few months
+  Vase: 60
+  TableTopDecor: 60
+  GarbageCan: 60
+  AlarmClock: 90
+  Statue: 90
+  DeskLamp: 90
+  HousePlant: 90
+  RoomDecor: 90
+  DogBed: 90
+  ArmChair: 180
+  CoffeeTable: 180
+  SideTable: 180
+  FloorLamp: 180
+  Toaster: 180
+  # large furniture and appliances
+  Sofa: 365
+  DiningTable: 365
+  Desk: 365
+  Television: 365
+  Desktop: 365
+  CoffeeMachine: 365
+  Microwave: 365
+  Bed: 730
+  Dresser: 730
+  ShelvingUnit: 730
+  TVStand: 730
+  Poster: 730
+  ShowerCurtain: 730
+  Safe: 1825
+  Painting: 1825
+  # building fixtures
+  Bathtub: 3650
+  BathtubBasin: 3650
+  Blinds: 3650
+  Cabinet: 3650
+  CounterTop: 3650
+  Curtains: 3650
+  Drawer: 3650
+  Faucet: 3650
+  Floor: 3650
+  Fridge: 3650
+  HandTowelHolder: 3650
+  LightSwitch: 3650
+  Mirror: 3650
+  Shelf: 3650
+  ShowerDoor: 3650
+  ShowerGlass: 3650
+  ShowerHead: 3650
+  Sink: 3650
+  SinkBasin: 3650
+  StoveBurner: 3650
+  StoveKnob: 3650
+  Toilet: 3650
+  ToiletPaperHanger: 3650
+  TowelHolder: 3650
+  Window: 3650

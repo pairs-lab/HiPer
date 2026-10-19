@@ -1,5 +1,5 @@
 """
-seliSlam.common.params
+hiper.common.params
 ~~~~~~~~~~~~~~~~~~~~~~
 Centralised ROS parameter loading with typed defaults and
 a single validation step. Every node calls get_params() and
@@ -96,7 +96,7 @@ class ObjectEncoderParams:
 @dataclass
 class MapManagerParams:
     map_frame: str = "map"
-    map_save_dir: str = "/tmp/seliSlam_maps"
+    map_save_dir: str = "/tmp/hiper_maps"
     autosave_on_shutdown: bool = True
     # Sparsification: KL divergence budget
     sparsify_kl_budget: float = 0.01
@@ -113,7 +113,7 @@ class MapManagerParams:
 
 
 @dataclass
-class SeLiSLAMParams:
+class HiPerParams:
     vio:        VIOParams        = field(default_factory=VIOParams)
     seg:        SegmentationParams = field(default_factory=SegmentationParams)
     eph:        EphemeralityParams = field(default_factory=EphemeralityParams)
@@ -126,11 +126,11 @@ class SeLiSLAMParams:
     session_id: int = 0
 
 
-def get_params(ns: str = "~") -> SeLiSLAMParams:
+def get_params(ns: str = "~") -> HiPerParams:
     """
     Load all parameters from the ROS parameter server.
     Resolution order per key: private node namespace (~/key), then the
-    shared /seliSlam namespace the launch files load the YAML into,
+    shared /hiper namespace the launch files load the YAML into,
     then the dataclass default.
     """
     def _get(key, default):
@@ -138,9 +138,9 @@ def get_params(ns: str = "~") -> SeLiSLAMParams:
         val = rospy.get_param(f"{ns}/{key}", sentinel)
         if val is not sentinel:
             return val
-        return rospy.get_param(f"/seliSlam/{key}", default)
+        return rospy.get_param(f"/hiper/{key}", default)
 
-    p = SeLiSLAMParams()
+    p = HiPerParams()
 
     # VIO
     p.vio.replay_buffer_size         = _get("vio/replay_buffer_size", p.vio.replay_buffer_size)
@@ -194,6 +194,6 @@ def get_params(ns: str = "~") -> SeLiSLAMParams:
     p.camera_frame                   = _get("camera_frame", p.camera_frame)
     p.session_id                     = _get("session_id", p.session_id)
 
-    rospy.loginfo(f"[seliSlam] Parameters loaded. Session {p.session_id}, "
+    rospy.loginfo(f"[hiper] Parameters loaded. Session {p.session_id}, "
                   f"device={p.seg.device}, backbone={p.encoder.backbone}")
     return p

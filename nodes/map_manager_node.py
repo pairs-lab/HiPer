@@ -2,11 +2,11 @@
 """
 map_manager_node.py
 ===================
-Central long-term map (LTM) manager for SeLiSLAM.
+Central long-term map (LTM) manager for HiPer.
 
 Responsibilities:
   1. Load the LTM from disk at session start and broadcast it
-     to all other nodes via /seliSlam/ltm_loaded.
+     to all other nodes via /hiper/ltm_loaded.
   2. Receive ReID results + ephemerality scores and fuse them
      into SemanticObject records.
   3. Run KL-sparse map sparsification (ObVi-SLAM §V-B style)
@@ -15,22 +15,22 @@ Responsibilities:
   5. Serve the QueryObject service for downstream navigation.
 
 Subscribed topics:
-  /seliSlam/reid_result          seliSlam/ObjectReIDResult
-  /seliSlam/ephemerality_map     seliSlam/EphemeralityMap
-  /seliSlam/seg_metadata         std_msgs/String  (JSON)
-  /seliSlam/semantic_embeddings  std_msgs/Float32MultiArray
-  /seliSlam/odometry             nav_msgs/Odometry
+  /hiper/reid_result          hiper/ObjectReIDResult
+  /hiper/ephemerality_map     hiper/EphemeralityMap
+  /hiper/seg_metadata         std_msgs/String  (JSON)
+  /hiper/semantic_embeddings  std_msgs/Float32MultiArray
+  /hiper/odometry             nav_msgs/Odometry
 
 Published topics:
-  /seliSlam/ltm_loaded           seliSlam/LongTermMap  (once at startup)
-  /seliSlam/ltm_objects_viz      visualization_msgs/MarkerArray
-  /seliSlam/ltm_static_cloud     sensor_msgs/PointCloud2
+  /hiper/ltm_loaded           hiper/LongTermMap  (once at startup)
+  /hiper/ltm_objects_viz      visualization_msgs/MarkerArray
+  /hiper/ltm_static_cloud     sensor_msgs/PointCloud2
 
 Services:
-  /seliSlam/save_map             seliSlam/SaveMap
-  /seliSlam/load_map             seliSlam/LoadMap
-  /seliSlam/query_object         seliSlam/QueryObject
-  /seliSlam/end_session          std_srvs/Trigger
+  /hiper/save_map             hiper/SaveMap
+  /hiper/load_map             hiper/LoadMap
+  /hiper/query_object         hiper/QueryObject
+  /hiper/end_session          std_srvs/Trigger
 """
 
 import json
@@ -45,18 +45,18 @@ from std_msgs.msg import Float32MultiArray, String
 from visualization_msgs.msg import MarkerArray, Marker
 from std_srvs.srv import Trigger, TriggerResponse
 
-from seliSlam.common.params import get_params
-from seliSlam.common.ros_utils import make_header
-from seliSlam.ephemerality.global_bpf import fuse_and_decay
-from seliSlam.map_io.ltm_io import LTMIO
-from seliSlam.map_io.object_record import ObjectRecord
-from seliSlam.map_io.sparsifier import KLSparsifier
+from hiper.common.params import get_params
+from hiper.common.ros_utils import make_header
+from hiper.ephemerality.global_bpf import fuse_and_decay
+from hiper.map_io.ltm_io import LTMIO
+from hiper.map_io.object_record import ObjectRecord
+from hiper.map_io.sparsifier import KLSparsifier
 
 try:
-    from seliSlam.msg import (
+    from hiper.msg import (
         LongTermMap, EphemeralityMap, ObjectReIDResult,
     )
-    from seliSlam.srv import QueryObject, SaveMap, LoadMap
+    from hiper.srv import QueryObject, SaveMap, LoadMap
     _MSGS_COMPILED = True
 except ImportError:
     rospy.logwarn("[map_manager] Custom msgs not compiled yet — "
@@ -112,36 +112,36 @@ class MapManagerNode:
 
         # ── Publishers ────────────────────────────────────────────────────────
         self.pub_ltm_loaded = rospy.Publisher(
-            "/seliSlam/ltm_loaded",
+            "/hiper/ltm_loaded",
             LongTermMap if _MSGS_COMPILED else String,
             queue_size=1, latch=True)
         self.pub_viz = rospy.Publisher(
-            "/seliSlam/ltm_objects_viz", MarkerArray, queue_size=2)
+            "/hiper/ltm_objects_viz", MarkerArray, queue_size=2)
         self.pub_static_cloud = rospy.Publisher(
-            "/seliSlam/ltm_static_cloud", Float32MultiArray, queue_size=2)
+            "/hiper/ltm_static_cloud", Float32MultiArray, queue_size=2)
 
         # ── Subscribers ───────────────────────────────────────────────────────
-        rospy.Subscriber("/seliSlam/odometry", Odometry,
+        rospy.Subscriber("/hiper/odometry", Odometry,
                          self._odom_callback, queue_size=10)
-        rospy.Subscriber("/seliSlam/seg_metadata", String,
+        rospy.Subscriber("/hiper/seg_metadata", String,
                          self._meta_callback, queue_size=10)
 
         if _MSGS_COMPILED:
-            rospy.Subscriber("/seliSlam/reid_result", ObjectReIDResult,
+            rospy.Subscriber("/hiper/reid_result", ObjectReIDResult,
                              self._reid_callback, queue_size=20)
-            rospy.Subscriber("/seliSlam/ephemerality_map", EphemeralityMap,
+            rospy.Subscriber("/hiper/ephemerality_map", EphemeralityMap,
                              self._eph_callback, queue_size=5)
 
         # ── Services ──────────────────────────────────────────────────────────
-        rospy.Service("/seliSlam/end_session", Trigger,
+        rospy.Service("/hiper/end_session", Trigger,
                       self._end_session_service)
 
         if _MSGS_COMPILED:
-            rospy.Service("/seliSlam/save_map",     SaveMap,
+            rospy.Service("/hiper/save_map",     SaveMap,
                           self._save_map_service)
-            rospy.Service("/seliSlam/load_map",     LoadMap,
+            rospy.Service("/hiper/load_map",     LoadMap,
                           self._load_map_service)
-            rospy.Service("/seliSlam/query_object", QueryObject,
+            rospy.Service("/hiper/query_object", QueryObject,
                           self._query_object_service)
 
         # ── Timers ────────────────────────────────────────────────────────────
@@ -163,7 +163,7 @@ class MapManagerNode:
     def _boot_load_ltm(self):
         """
         Try to load the most recent LTM from disk.
-        Broadcast it on /seliSlam/ltm_loaded (latched) so that all
+        Broadcast it on /hiper/ltm_loaded (latched) so that all
         other nodes initialise correctly even if they started later.
         """
         loaded = self._ltm_io.load_latest()
@@ -367,7 +367,7 @@ class MapManagerNode:
                                        f"objects saved.")
 
     def _save_map_service(self, req):
-        from seliSlam.srv import SaveMapResponse
+        from hiper.srv import SaveMapResponse
         with self._lock:
             path = req.filepath or self._ltm_io.default_path(self._session_id)
             self._ltm_io.save(self._objects, self._session_id,
@@ -375,7 +375,7 @@ class MapManagerNode:
         return SaveMapResponse(success=True, message=f"Saved to {path}")
 
     def _load_map_service(self, req):
-        from seliSlam.srv import LoadMapResponse
+        from hiper.srv import LoadMapResponse
         loaded = self._ltm_io.load(req.filepath)
         if loaded is None:
             return LoadMapResponse(success=False,
@@ -390,7 +390,7 @@ class MapManagerNode:
                                num_objects_loaded=n)
 
     def _query_object_service(self, req):
-        from seliSlam.srv import QueryObjectResponse
+        from hiper.srv import QueryObjectResponse
         results = []
         with self._lock:
             for obj in self._objects.values():
@@ -440,7 +440,7 @@ class MapManagerNode:
                              last_seen: float) -> float:
         """
         One class-conditioned BPF step (shared implementation in
-        seliSlam.ephemerality.global_bpf.fuse_and_decay).
+        hiper.ephemerality.global_bpf.fuse_and_decay).
         """
         lam = self._class_priors.get(class_label,
                                      self.params.eph.default_lambda)
@@ -461,7 +461,7 @@ class MapManagerNode:
 
             m = Marker()
             m.header = make_header(self.params.map_frame, stamp)
-            m.ns     = "seliSlam_objects"
+            m.ns     = "hiper_objects"
             m.id     = i
             m.type   = Marker.SPHERE
             m.action = Marker.ADD

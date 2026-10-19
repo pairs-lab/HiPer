@@ -1,5 +1,5 @@
 """
-seliSlam.evaluation.lifelong_runner
+hiper.evaluation.lifelong_runner
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Offline multi-session (lifelong) evaluation harness.
 
@@ -25,16 +25,16 @@ from typing import Callable, Dict, List, Optional
 
 import numpy as np
 
-from seliSlam.ephemerality.global_bpf import GlobalEphemeralityBPF
-from seliSlam.evaluation.openloris import OpenLorisSequence
-from seliSlam.evaluation.trajectory_metrics import (
+from hiper.ephemerality.global_bpf import GlobalEphemeralityBPF
+from hiper.evaluation.openloris import OpenLorisSequence
+from hiper.evaluation.trajectory_metrics import (
     associate_timestamps,
     ate_rmse,
     correct_rate,
 )
-from seliSlam.map_io.ltm_io import LTMIO
-from seliSlam.map_io.object_record import ObjectRecord
-from seliSlam.map_io.sparsifier import KLSparsifier
+from hiper.map_io.ltm_io import LTMIO
+from hiper.map_io.object_record import ObjectRecord
+from hiper.map_io.sparsifier import KLSparsifier
 
 
 @dataclass
@@ -233,7 +233,7 @@ class LifelongEvaluator:
         duck-typed image message — see scripts/run_openloris_eval.py).
         Metric scale comes from the IMU/odometry speed channel.
         """
-        from seliSlam.evaluation.openloris import load_frame_images
+        from hiper.evaluation.openloris import load_frame_images
         from scipy.spatial.transform import Rotation
 
         if len(seq.frames) < 3:

@@ -2,8 +2,8 @@
 tests/test_ephemerality.py
 ==========================
 Unit tests for:
-  - seliSlam.ephemerality.local_bpf.LocalEphemeralityBPF
-  - seliSlam.ephemerality.global_bpf.GlobalEphemeralityBPF
+  - hiper.ephemerality.local_bpf.LocalEphemeralityBPF
+  - hiper.ephemerality.global_bpf.GlobalEphemeralityBPF
 
 Run with: python -m pytest tests/test_ephemerality.py -v
 """
@@ -15,8 +15,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 import numpy as np
 import pytest
 
-from seliSlam.ephemerality.local_bpf  import LocalEphemeralityBPF
-from seliSlam.ephemerality.global_bpf import GlobalEphemeralityBPF
+from hiper.ephemerality.local_bpf  import LocalEphemeralityBPF
+from hiper.ephemerality.global_bpf import GlobalEphemeralityBPF
 
 
 # ─────────────────────────────────────────────────────────────────────────────

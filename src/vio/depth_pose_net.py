@@ -1,5 +1,5 @@
 """
-seliSlam.vio.depth_pose_net
+hiper.vio.depth_pose_net
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 DepthNet + PoseNet with a complete, mathematically correct
 photometric reprojection loss.
@@ -33,7 +33,7 @@ except ImportError:
 
 from sensor_msgs.msg import Image as ROSImage
 
-_CKPT_DIR = os.path.expanduser("~/.seliSlam/checkpoints")
+_CKPT_DIR = os.path.expanduser("~/.hiper/checkpoints")
 
 
 # ─────────────────────────────────────────────────────────────────────────────

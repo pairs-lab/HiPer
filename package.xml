@@ -1,12 +1,12 @@
 <?xml version="1.0"?>
 <package format="2">
-  <name>seliSlam</name>
+  <name>hiper</name>
   <version>0.1.0</version>
   <description>
-    SeLiSLAM: Semantic Lifelong SLAM for UAVs.
-    Combines continual VIO, open-vocabulary segmentation,
-    semantic ephemerality, BYE object re-ID, and long-term
-    map management in a ROS Noetic pipeline.
+    HiPer: hierarchical persistence beliefs for lifelong
+    open-vocabulary object maps (evaluation code), plus an
+    experimental ROS Noetic pipeline (continual VIO, open-vocabulary
+    segmentation, object re-ID, long-term map management).
   </description>
 
   <maintainer email="thanh@jaist.ac.jp">Thanh Nguyen Canh</maintainer>

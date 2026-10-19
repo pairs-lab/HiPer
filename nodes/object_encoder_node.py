@@ -2,7 +2,7 @@
 """
 object_encoder_node.py
 ======================
-Per-scene contrastive point cloud encoder for SeLiSLAM.
+Per-scene contrastive point cloud encoder for HiPer.
 Implements BYE (Huang et al. 2025) with UAV-specific augmentations:
   - altitude-invariant contrastive training
   - top-down viewpoint augmentation
@@ -21,14 +21,14 @@ After session end:
   - Triggers a background re-training of the encoder on the new session data
 
 Subscribed topics:
-  /seliSlam/static_cloud         sensor_msgs/PointCloud2
-  /seliSlam/instance_masks       sensor_msgs/Image
-  /seliSlam/semantic_embeddings  std_msgs/Float32MultiArray
-  /seliSlam/ltm_loaded           seliSlam/LongTermMap
+  /hiper/static_cloud         sensor_msgs/PointCloud2
+  /hiper/instance_masks       sensor_msgs/Image
+  /hiper/semantic_embeddings  std_msgs/Float32MultiArray
+  /hiper/ltm_loaded           hiper/LongTermMap
 
 Published topics:
-  /seliSlam/reid_result          seliSlam/ObjectReIDResult
-  /seliSlam/encoder_status       std_msgs/String  (JSON status)
+  /hiper/reid_result          hiper/ObjectReIDResult
+  /hiper/encoder_status       std_msgs/String  (JSON status)
 """
 
 import json
@@ -40,17 +40,17 @@ import message_filters
 from sensor_msgs.msg import Image, PointCloud2
 from std_msgs.msg import Float32MultiArray, String
 
-from seliSlam.common.params import get_params
-from seliSlam.common.ros_utils import (
+from hiper.common.params import get_params
+from hiper.common.ros_utils import (
     make_header, pointcloud2_to_xyz, RateMonitor
 )
-from seliSlam.object_encoder.association import ensemble_associate
-from seliSlam.object_encoder.bye_encoder import BYEEncoder
-from seliSlam.object_encoder.memory_bank import ObjectMemoryBank
-from seliSlam.object_encoder.uav_augment import UAVPointCloudAugmentor
+from hiper.object_encoder.association import ensemble_associate
+from hiper.object_encoder.bye_encoder import BYEEncoder
+from hiper.object_encoder.memory_bank import ObjectMemoryBank
+from hiper.object_encoder.uav_augment import UAVPointCloudAugmentor
 
 try:
-    from seliSlam.msg import ObjectReIDResult, LongTermMap
+    from hiper.msg import ObjectReIDResult, LongTermMap
 except ImportError:
     ObjectReIDResult = None
     LongTermMap = None
@@ -104,31 +104,31 @@ class ObjectEncoderNode:
 
         # ── Publishers ────────────────────────────────────────────────────────
         self.pub_reid   = rospy.Publisher(
-            "/seliSlam/reid_result",
+            "/hiper/reid_result",
             ObjectReIDResult if ObjectReIDResult else String,
             queue_size=10)
         self.pub_status = rospy.Publisher(
-            "/seliSlam/encoder_status", String, queue_size=5)
+            "/hiper/encoder_status", String, queue_size=5)
 
         # ── Subscribers ───────────────────────────────────────────────────────
         cloud_sub = message_filters.Subscriber(
-            "/seliSlam/static_cloud", PointCloud2)
+            "/hiper/static_cloud", PointCloud2)
         mask_sub  = message_filters.Subscriber(
-            "/seliSlam/instance_masks", Image)
+            "/hiper/instance_masks", Image)
         emb_sub   = message_filters.Subscriber(
-            "/seliSlam/semantic_embeddings", Float32MultiArray)
+            "/hiper/semantic_embeddings", Float32MultiArray)
 
         self.ts = message_filters.ApproximateTimeSynchronizer(
             [cloud_sub, mask_sub, emb_sub], queue_size=10, slop=0.15)
         self.ts.registerCallback(self._callback)
 
         if LongTermMap is not None:
-            rospy.Subscriber("/seliSlam/ltm_loaded", LongTermMap,
+            rospy.Subscriber("/hiper/ltm_loaded", LongTermMap,
                              self._ltm_callback, queue_size=1)
 
         # Service to trigger end-of-session retraining
         from std_srvs.srv import Trigger
-        rospy.Service("/seliSlam/retrain_encoder", Trigger,
+        rospy.Service("/hiper/retrain_encoder", Trigger,
                       self._retrain_service)
 
         self._rate_monitor = RateMonitor("object_encoder", window=20)

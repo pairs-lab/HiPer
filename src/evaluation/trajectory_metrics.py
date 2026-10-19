@@ -1,5 +1,5 @@
 """
-seliSlam.evaluation.trajectory_metrics
+hiper.evaluation.trajectory_metrics
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Trajectory evaluation metrics for lifelong SLAM.
 

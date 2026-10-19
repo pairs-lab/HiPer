@@ -2,7 +2,7 @@
 """
 scripts/pretrain_vio.py
 ========================
-Offline pre-training of the SeLiSLAM DepthNet + PoseNet on a
+Offline pre-training of the HiPer DepthNet + PoseNet on a
 source domain before the first deployment session.
 
 Mirrors CoVIO / CL-SLAM: pre-train on Cityscapes or your own
@@ -23,14 +23,14 @@ Usage examples
       --depth-topic /camera/depth/image_rect_raw \
       --epochs 25 \
       --lr 1e-4 \
-      --out ~/.seliSlam/checkpoints/generalizer.pt
+      --out ~/.hiper/checkpoints/generalizer.pt
 
   # Pre-train on an image folder (no depth → monocular mode)
   python3 scripts/pretrain_vio.py \
       --img-dir /data/cityscapes_images/ \
       --epochs 25 \
       --lr 1e-4 \
-      --out ~/.seliSlam/checkpoints/generalizer.pt
+      --out ~/.hiper/checkpoints/generalizer.pt
 
 Output
 ------
@@ -51,7 +51,7 @@ logging.basicConfig(level=logging.INFO,
                     format="[pretrain_vio] %(levelname)s %(message)s")
 log = logging.getLogger(__name__)
 
-# Allow running without catkin: register src/ as the seliSlam package
+# Allow running without catkin: register src/ as the hiper package
 # (and stub rospy) via the tests' conftest bootstrap.
 _PKG_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_PKG_ROOT / "tests"))
@@ -212,7 +212,7 @@ def _patch_depth_pose_net():
     without needing cv_bridge (which requires a ROS master).
     """
     import torch
-    from seliSlam.vio.depth_pose_net import DepthPoseNet
+    from hiper.vio.depth_pose_net import DepthPoseNet
 
     def _img_patched(self, msg) -> torch.Tensor:
         rgb = msg._rgb.astype(np.float32)   # already (H,W,3) float32
@@ -265,7 +265,7 @@ def train(net, dataset: TripletDataset,
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Offline VIO pre-training for SeLiSLAM")
+        description="Offline VIO pre-training for HiPer")
 
     src = parser.add_mutually_exclusive_group(required=True)
     src.add_argument("--bag",     help="Path to a ROS bag file")
@@ -284,7 +284,7 @@ def main():
                         help="Freeze encoder weights (decoder-only training)")
     parser.add_argument("--out",
                         default=os.path.expanduser(
-                            "~/.seliSlam/checkpoints/generalizer.pt"),
+                            "~/.hiper/checkpoints/generalizer.pt"),
                         help="Output checkpoint path")
     parser.add_argument("--fx", type=float, default=385.19)
     parser.add_argument("--fy", type=float, default=385.19)
@@ -310,7 +310,7 @@ def main():
     # ── Build network ─────────────────────────────────────────────────────────
     _patch_depth_pose_net()   # allow offline _img() calls
 
-    from seliSlam.vio.depth_pose_net import DepthPoseNet
+    from hiper.vio.depth_pose_net import DepthPoseNet
     net = DepthPoseNet(freeze_encoder=args.freeze_encoder,
                        device=args.device)
     net.update_K(fx=args.fx, fy=args.fy, cx=args.cx, cy=args.cy)

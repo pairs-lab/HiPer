@@ -1,5 +1,5 @@
 """
-seliSlam.map_io.object_record
+hiper.map_io.object_record
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ObjectRecord: the canonical in-memory representation of a
 tracked semantic object in the long-term map.
@@ -190,9 +190,9 @@ class ObjectRecord:
     # ── ROS conversion ────────────────────────────────────────────────────────
 
     def to_ros_msg(self):
-        """Serialise to seliSlam/SemanticObject ROS message."""
+        """Serialise to hiper/SemanticObject ROS message."""
         try:
-            from seliSlam.msg import SemanticObject
+            from hiper.msg import SemanticObject
             from geometry_msgs.msg import Point, Quaternion
         except ImportError:
             return None
@@ -233,7 +233,7 @@ class ObjectRecord:
 
     @classmethod
     def from_ros_msg(cls, msg) -> "ObjectRecord":
-        """Deserialise from seliSlam/SemanticObject ROS message."""
+        """Deserialise from hiper/SemanticObject ROS message."""
         rec = cls()
         rec.object_id    = msg.object_id
         rec.class_label  = msg.class_label

@@ -3,7 +3,7 @@ tests/conftest.py
 =================
 Pytest configuration for running tests WITHOUT catkin install.
 
-The catkin setup.py declares package_dir={"seliSlam": "src"}, which
+The catkin setup.py declares package_dir={"hiper": "src"}, which
 means Python normally only resolves the import after `catkin_make &&
 source devel/setup.bash`. This conftest manually registers the same
 mapping so all tests run standalone (no ROS master required).
@@ -13,32 +13,32 @@ import importlib.util
 import sys
 from pathlib import Path
 
-_PKG_ROOT = Path(__file__).resolve().parents[1]   # .../seliSlam/
+_PKG_ROOT = Path(__file__).resolve().parents[1]   # .../hiper/
 _SRC_DIR  = _PKG_ROOT / "src"
 
 
-def _register_seliSlam_package():
+def _register_hiper_package():
     """
-    Register src/ as the 'seliSlam' top-level package so that
-    `from seliSlam.vio.replay_buffer import ...` resolves correctly.
+    Register src/ as the 'hiper' top-level package so that
+    `from hiper.vio.replay_buffer import ...` resolves correctly.
     """
-    if "seliSlam" in sys.modules:
+    if "hiper" in sys.modules:
         return
 
     init_path = _SRC_DIR / "__init__.py"
     spec = importlib.util.spec_from_file_location(
-        "seliSlam",
+        "hiper",
         str(init_path),
         submodule_search_locations=[str(_SRC_DIR)],
     )
     mod = importlib.util.module_from_spec(spec)
-    sys.modules["seliSlam"] = mod
+    sys.modules["hiper"] = mod
     spec.loader.exec_module(mod)
 
     # Also register each sub-package so nested imports work
     for subpkg in _SRC_DIR.iterdir():
         if subpkg.is_dir() and (subpkg / "__init__.py").exists():
-            name = f"seliSlam.{subpkg.name}"
+            name = f"hiper.{subpkg.name}"
             if name not in sys.modules:
                 sub_spec = importlib.util.spec_from_file_location(
                     name,
@@ -50,7 +50,7 @@ def _register_seliSlam_package():
                 sub_spec.loader.exec_module(sub_mod)
 
 
-_register_seliSlam_package()
+_register_hiper_package()
 
 
 # ── Lightweight rospy stub for offline testing ────────────────────────────────

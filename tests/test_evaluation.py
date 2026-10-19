@@ -11,20 +11,20 @@ import os
 import numpy as np
 import pytest
 
-from seliSlam.evaluation.trajectory_metrics import (
+from hiper.evaluation.trajectory_metrics import (
     associate_timestamps,
     ate_rmse,
     correct_rate,
     integrate_relative_poses,
     umeyama_alignment,
 )
-from seliSlam.evaluation.openloris import (
+from hiper.evaluation.openloris import (
     discover_scene_sessions,
     load_sequence,
     read_odometry,
     read_trajectory,
 )
-from seliSlam.evaluation.lifelong_runner import (
+from hiper.evaluation.lifelong_runner import (
     LifelongEvaluator,
     Observation,
 )

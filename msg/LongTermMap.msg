@@ -5,7 +5,7 @@
 std_msgs/Header header
 
 # All tracked semantic objects
-seliSlam/SemanticObject[] objects
+hiper/SemanticObject[] objects
 
 # Map frame id (e.g. "map" or "world")
 string map_frame

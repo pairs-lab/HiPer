@@ -1,5 +1,5 @@
 """
-seliSlam.map_io.ltm_io
+hiper.map_io.ltm_io
 ~~~~~~~~~~~~~~~~~~~~~~~~
 Disk I/O for the long-term semantic map.
 
@@ -19,7 +19,7 @@ from typing import Dict, Optional
 import numpy as np
 import rospy
 
-from seliSlam.map_io.object_record import ObjectRecord
+from hiper.map_io.object_record import ObjectRecord
 
 
 class LTMIO:
@@ -31,7 +31,7 @@ class LTMIO:
     save_dir : str   Directory for map files.
     """
 
-    def __init__(self, save_dir: str = "/tmp/seliSlam_maps"):
+    def __init__(self, save_dir: str = "/tmp/hiper_maps"):
         self._save_dir = save_dir
         self.latest_path: Optional[str] = None
         os.makedirs(save_dir, exist_ok=True)

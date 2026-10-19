@@ -1,5 +1,5 @@
 """
-seliSlam.vio.replay_buffer
+hiper.vio.replay_buffer
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 Fixed-size experience replay buffer for the VIO front-end.
 Implements the diversity-based update strategy from CoVIO

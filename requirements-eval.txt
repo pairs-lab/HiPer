@@ -1,0 +1,22 @@
+# Pinned environment that produced the numbers in the RA-L submission
+# (Python 3.12.14, Ubuntu 20.04, CUDA 12.8 driver). Install torch first:
+#   pip install torch==2.11.0 torchvision==0.26.0 --index-url https://download.pytorch.org/whl/cu128
+# then:
+#   pip install -r requirements-eval.txt
+numpy==1.26.4
+scipy==1.17.1
+scikit-learn==1.9.1
+open-clip-torch==3.3.0
+timm==1.0.30
+huggingface-hub==2.2.0
+safetensors==0.8.0
+ftfy==6.3.1
+ai2thor==5.0.0
+opencv-python-headless==4.11.0.86
+pillow==13.0.0
+matplotlib==3.11.2
+imageio==2.38.1
+imageio-ffmpeg==0.6.0
+pyyaml==6.0.3
+tqdm==4.70.1
+pytest==9.1.1

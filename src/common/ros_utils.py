@@ -1,5 +1,5 @@
 """
-seliSlam.common.ros_utils
+hiper.common.ros_utils
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 Lightweight ROS ↔ numpy conversion helpers.
 No heavy dependencies — just rospy, numpy, and std ROS message types.

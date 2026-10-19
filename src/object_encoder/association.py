@@ -1,5 +1,5 @@
 """
-seliSlam.object_encoder.association
+hiper.object_encoder.association
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Score-level VLM-ensemble association (paper Eq. 13) with uncertainty
 down-weighting and the tau_u tentative-match gate, solved jointly for

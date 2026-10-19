@@ -2,9 +2,9 @@
 tests/test_object_encoder.py
 =============================
 Unit tests for:
-  - seliSlam.object_encoder.bye_encoder.BYEEncoder
-  - seliSlam.object_encoder.memory_bank.ObjectMemoryBank
-  - seliSlam.object_encoder.uav_augment.UAVPointCloudAugmentor
+  - hiper.object_encoder.bye_encoder.BYEEncoder
+  - hiper.object_encoder.memory_bank.ObjectMemoryBank
+  - hiper.object_encoder.uav_augment.UAVPointCloudAugmentor
 
 Run with: python -m pytest tests/test_object_encoder.py -v
 """
@@ -15,9 +15,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 import numpy as np
 
-from seliSlam.object_encoder.memory_bank import ObjectMemoryBank
-from seliSlam.object_encoder.uav_augment import UAVPointCloudAugmentor
-from seliSlam.object_encoder.bye_encoder  import BYEEncoder
+from hiper.object_encoder.memory_bank import ObjectMemoryBank
+from hiper.object_encoder.uav_augment import UAVPointCloudAugmentor
+from hiper.object_encoder.bye_encoder  import BYEEncoder
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -379,7 +379,7 @@ class TestUAVAugmentor:
 class TestUncertaintyGatedAssociation:
 
     def _bank(self):
-        from seliSlam.object_encoder.memory_bank import ObjectMemoryBank
+        from hiper.object_encoder.memory_bank import ObjectMemoryBank
         return ObjectMemoryBank(embed_dim=8, knn_k=3, sigma_u=0.25)
 
     def test_high_uncertainty_candidate_downweighted(self):
@@ -417,7 +417,7 @@ class TestUncertaintyGatedAssociation:
 class TestRecordUncertainty:
 
     def _rec(self):
-        from seliSlam.map_io.object_record import ObjectRecord
+        from hiper.map_io.object_record import ObjectRecord
         return ObjectRecord()
 
     def test_embedding_uncertainty_grows_with_drift(self):
@@ -439,7 +439,7 @@ class TestRecordUncertainty:
         assert after > before
 
     def test_belief_state_round_trips(self):
-        from seliSlam.map_io.object_record import ObjectRecord
+        from hiper.map_io.object_record import ObjectRecord
         rec = self._rec()
         rec.seed_beta_from_scalar(0.3, concentration=20.0)
         rec.update_embedding_uncertainty(np.ones(16, dtype=np.float32))

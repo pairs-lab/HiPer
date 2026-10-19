@@ -1,5 +1,5 @@
 """
-seliSlam.ephemerality.local_bpf
+hiper.ephemerality.local_bpf
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Local ephemerality update via point-wise Bayesian inference.
 

@@ -2,7 +2,7 @@
 """
 scripts/inference_server.py
 ============================
-Python 3.12 inference server for SeLiSLAM.
+Python 3.12 inference server for HiPer.
 
 Runs MobileSAM + CLIP in a separate Python 3.12 process and
 serves results over a TCP socket to the ROS Noetic (Python 3.8)
@@ -41,7 +41,7 @@ Usage
   # Or with explicit model paths:
   python3.12 scripts/inference_server.py \
       --port 9876 \
-      --sam-ckpt ~/.seliSlam/checkpoints/mobile_sam.pt \
+      --sam-ckpt ~/.hiper/checkpoints/mobile_sam.pt \
       --clip-model ViT-B/32 \
       --device cuda
 """
@@ -109,7 +109,7 @@ class SegmentationEngine:
 
             if ckpt is None:
                 ckpt = os.path.expanduser(
-                    "~/.seliSlam/checkpoints/mobile_sam.pt")
+                    "~/.hiper/checkpoints/mobile_sam.pt")
 
             if not os.path.exists(ckpt):
                 os.makedirs(os.path.dirname(ckpt), exist_ok=True)
@@ -156,7 +156,8 @@ class SegmentationEngine:
             try:
                 import open_clip
                 model, _, prep = open_clip.create_model_and_transforms(
-                    "ViT-B-32", pretrained="openai", device=self._device)
+                    "ViT-B-32-quickgelu", pretrained="openai",
+                    device=self._device)  # OpenAI weights need QuickGELU
                 tokenizer = open_clip.get_tokenizer("ViT-B-32")
                 self._clip        = model
                 self._preprocess  = prep
@@ -377,7 +378,7 @@ def run_server(host: str, port: int, engine: SegmentationEngine):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="SeLiSLAM Python 3.12 inference server")
+        description="HiPer Python 3.12 inference server")
     parser.add_argument("--host",       default="0.0.0.0")
     parser.add_argument("--port",       type=int, default=9876)
     parser.add_argument("--sam-ckpt",   default=None,

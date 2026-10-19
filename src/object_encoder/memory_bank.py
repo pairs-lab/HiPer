@@ -1,5 +1,5 @@
 """
-seliSlam.object_encoder.memory_bank
+hiper.object_encoder.memory_bank
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 In-memory object embedding bank for BYE cross-session re-identification.
 
@@ -97,7 +97,8 @@ class ObjectMemoryBank:
         emb = emb / (np.linalg.norm(emb) + 1e-8)
 
         # Cosine similarities with all stored embeddings, gated by confidence
-        sims = self._embeddings @ emb                    # (M,)
+        # float32 dot products of unit vectors can exceed 1 by an ulp
+        sims = np.clip(self._embeddings @ emb, -1.0, 1.0)  # (M,)
         gated = np.array(
             [sims[i] * self._gamma(i, query_uncertainty)
              for i in range(len(self._ids))],
@@ -130,7 +131,7 @@ class ObjectMemoryBank:
 
         emb = embedding.astype(np.float32).flatten()
         emb = emb / (np.linalg.norm(emb) + 1e-8)
-        sims = self._embeddings @ emb
+        sims = np.clip(self._embeddings @ emb, -1.0, 1.0)
         k = min(k, len(self._ids))
         idx = np.argsort(-sims)[:k]
         return [(self._ids[i], float(sims[i])) for i in idx]

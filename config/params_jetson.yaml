@@ -1,4 +1,4 @@
-# seliSlam Jetson AGX Xavier configuration
+# hiper Jetson AGX Xavier configuration
 # Tuned for JetPack 5.x + ROS Noetic + RealSense D455.
 # Socket bridge delegates VLM inference to Python 3.12 server.
 
@@ -63,7 +63,7 @@ encoder:
 
 map_mgr:
   map_frame:           "map"
-  map_save_dir:        "~/.seliSlam/maps"
+  map_save_dir:        "~/.hiper/maps"
   autosave_on_shutdown: true
   sparsify_kl_budget:  0.01
   merge_distance_m:    0.5

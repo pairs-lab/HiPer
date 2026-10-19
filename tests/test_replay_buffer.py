@@ -1,7 +1,7 @@
 """
 tests/test_replay_buffer.py
 ===========================
-Unit tests for seliSlam.vio.replay_buffer.DiversityReplayBuffer.
+Unit tests for hiper.vio.replay_buffer.DiversityReplayBuffer.
 
 threshold=2.0  → accept everything (cosine sim is always < 2)
 threshold=0.99 → accept only sufficiently different frames
@@ -16,7 +16,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 import numpy as np
 
-from seliSlam.vio.replay_buffer import DiversityReplayBuffer
+from hiper.vio.replay_buffer import DiversityReplayBuffer
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────

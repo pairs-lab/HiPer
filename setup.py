@@ -3,15 +3,16 @@ from catkin_pkg.python_setup import generate_distutils_setup
 
 d = generate_distutils_setup(
     packages=[
-        "seliSlam",
-        "seliSlam.vio",
-        "seliSlam.segmentation",
-        "seliSlam.ephemerality",
-        "seliSlam.object_encoder",
-        "seliSlam.map_io",
-        "seliSlam.common",
+        "hiper",
+        "hiper.vio",
+        "hiper.segmentation",
+        "hiper.ephemerality",
+        "hiper.object_encoder",
+        "hiper.map_io",
+        "hiper.common",
+        "hiper.evaluation",
     ],
-    package_dir={"seliSlam": "src"},
+    package_dir={"hiper": "src"},
 )
 
 setup(**d)

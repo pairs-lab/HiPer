@@ -1,5 +1,5 @@
-# seliSlam desktop configuration
-# Loaded by seliSlam_desktop.launch into the /seliSlam namespace.
+# hiper desktop configuration
+# Loaded by hiper_desktop.launch into the /hiper namespace.
 
 # ── Shared frames ────────────────────────────────────────────────────────────
 map_frame:    "map"
@@ -70,7 +70,7 @@ encoder:
 # ── Map manager ───────────────────────────────────────────────────────────────
 map_mgr:
   map_frame:           "map"
-  map_save_dir:        "~/.seliSlam/maps"
+  map_save_dir:        "~/.hiper/maps"
   autosave_on_shutdown: true
   sparsify_kl_budget:  0.01
   merge_distance_m:    0.5

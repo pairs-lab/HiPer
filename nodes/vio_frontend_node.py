@@ -2,14 +2,14 @@
 """
 vio_frontend_node.py
 ====================
-Production VIO front-end for SeLiSLAM.
+Production VIO front-end for HiPer.
 
 New in this version vs scaffold:
   - CameraInfo subscriber → precise intrinsics passed to DepthPoseNet
   - tf2 broadcaster: publishes map → base_link transform every keyframe
   - Pose graph accumulation: stores (stamp, T) pairs for loop-closure
     integration (consumed later by a backend node)
-  - Keyframe database: publishes /seliSlam/keyframe_db on a latched topic
+  - Keyframe database: publishes /hiper/keyframe_db on a latched topic
     so new subscribers get the full history immediately
   - Graceful degradation: if IMU topic is absent, velocity supervision
     is disabled (L_vel weight set to 0)
@@ -22,10 +22,10 @@ Subscribed topics:
   /mavros/imu/data   (optional)     sensor_msgs/Imu
 
 Published topics:
-  /seliSlam/odometry                nav_msgs/Odometry
-  /seliSlam/depth                   sensor_msgs/Image
-  /seliSlam/keyframe_pointcloud     sensor_msgs/PointCloud2
-  /seliSlam/pose_graph_edges        nav_msgs/Path   (cumulative trajectory)
+  /hiper/odometry                nav_msgs/Odometry
+  /hiper/depth                   sensor_msgs/Image
+  /hiper/keyframe_pointcloud     sensor_msgs/PointCloud2
+  /hiper/pose_graph_edges        nav_msgs/Path   (cumulative trajectory)
 
 TF published:
   map → base_link   (every accepted keyframe)
@@ -42,13 +42,13 @@ from geometry_msgs.msg import PoseStamped, TransformStamped
 import message_filters
 import tf2_ros
 
-from seliSlam.common.params   import get_params
-from seliSlam.common.ros_utils import (
+from hiper.common.params   import get_params
+from hiper.common.ros_utils import (
     make_header, xyz_to_pointcloud2, RateMonitor,
     np_to_point, np_to_quat
 )
-from seliSlam.vio.replay_buffer  import DiversityReplayBuffer
-from seliSlam.vio.depth_pose_net import DepthPoseNet
+from hiper.vio.replay_buffer  import DiversityReplayBuffer
+from hiper.vio.depth_pose_net import DepthPoseNet
 
 
 class VIOFrontendNode:
@@ -103,13 +103,13 @@ class VIOFrontendNode:
 
         # ── Publishers ────────────────────────────────────────────────────────
         self.pub_odom     = rospy.Publisher(
-            "/seliSlam/odometry",          Odometry,    queue_size=10)
+            "/hiper/odometry",          Odometry,    queue_size=10)
         self.pub_depth    = rospy.Publisher(
-            "/seliSlam/depth",             Image,       queue_size=5)
+            "/hiper/depth",             Image,       queue_size=5)
         self.pub_kf_cloud = rospy.Publisher(
-            "/seliSlam/keyframe_pointcloud", PointCloud2, queue_size=5)
+            "/hiper/keyframe_pointcloud", PointCloud2, queue_size=5)
         self.pub_path     = rospy.Publisher(
-            "/seliSlam/pose_graph_edges",  Path,        queue_size=2,
+            "/hiper/pose_graph_edges",  Path,        queue_size=2,
             latch=True)
 
         # ── Subscribers ───────────────────────────────────────────────────────

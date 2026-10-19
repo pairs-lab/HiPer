@@ -1,5 +1,5 @@
 """
-seliSlam.segmentation.mobile_sam_wrapper
+hiper.segmentation.mobile_sam_wrapper
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 MobileSAM (Zhang et al. 2023) + CLIP (or DINOv2) for open-vocabulary
 instance segmentation.
@@ -88,7 +88,7 @@ class MobileSAMWithCLIP:
         import urllib.request
 
         ckpt_path = os.path.expanduser(
-            "~/.seliSlam/checkpoints/mobile_sam.pt")
+            "~/.hiper/checkpoints/mobile_sam.pt")
         if not os.path.exists(ckpt_path):
             os.makedirs(os.path.dirname(ckpt_path), exist_ok=True)
             logger.info("[mobile_sam_wrapper] Downloading MobileSAM weights...")
@@ -130,7 +130,8 @@ class MobileSAMWithCLIP:
             # Fall back to open_clip
             import open_clip
             model, _, preprocess = open_clip.create_model_and_transforms(
-                "ViT-B-32", pretrained="openai", device=self._device)
+                "ViT-B-32-quickgelu", pretrained="openai",
+                device=self._device)  # OpenAI weights need QuickGELU
             tokenizer = open_clip.get_tokenizer("ViT-B-32")
             self._clip_lib     = "openclip"
             self._clip         = model

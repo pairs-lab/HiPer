@@ -1,5 +1,5 @@
 """
-seliSlam.segmentation.seg_backend
+hiper.segmentation.seg_backend
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Segmentation backend that wraps MobileSAM + CLIP/DINOv2.
 Supports two modes:
@@ -238,7 +238,7 @@ class SegmentationBackend:
         """
         try:
             if model_name == "mobile_sam":
-                from seliSlam.segmentation.mobile_sam_wrapper \
+                from hiper.segmentation.mobile_sam_wrapper \
                     import MobileSAMWithCLIP
                 return MobileSAMWithCLIP(clip_model=clip_model, device=device)
         except ImportError as e:

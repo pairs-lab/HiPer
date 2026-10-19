@@ -1,7 +1,7 @@
 <!--
-seliSlam_jetson.launch
+hiper_jetson.launch
 ======================
-SeLiSLAM deployment for Jetson AGX Xavier + RealSense D455.
+HiPer deployment for Jetson AGX Xavier + RealSense D455.
 
 Key differences from desktop launch:
   - seg/use_socket_bridge = true  (Python 3.12 server on port 9876)
@@ -14,28 +14,28 @@ Prerequisites on Jetson:
        python3.12 scripts/inference_server.py --port 9876
   2. Source ROS Noetic and this workspace:
        source /opt/ros/noetic/setup.bash
-       source ~/seliSlam_ws/devel/setup.bash
+       source ~/hiper_ws/devel/setup.bash
   3. Launch RealSense:
        roslaunch realsense2_camera rs_camera.launch \
          align_depth:=true enable_gyro:=true enable_accel:=true
 
 Usage:
-  roslaunch seliSlam seliSlam_jetson.launch session_id:=1
+  roslaunch hiper hiper_jetson.launch session_id:=1
 -->
 <launch>
 
   <!-- ── Arguments ─────────────────────────────────────────────────── -->
-  <arg name="config"         default="$(find seliSlam)/config/params_jetson.yaml"/>
+  <arg name="config"         default="$(find hiper)/config/params_jetson.yaml"/>
   <arg name="session_id"     default="0"/>
-  <arg name="map_dir"        default="$(env HOME)/.seliSlam/maps"/>
+  <arg name="map_dir"        default="$(env HOME)/.hiper/maps"/>
   <arg name="socket_port"    default="9876"/>
   <arg name="rviz"           default="false"/>
 
   <!-- ── Load parameters ───────────────────────────────────────────── -->
-  <rosparam file="$(arg config)" command="load" ns="/seliSlam"/>
-  <param name="/seliSlam/session_id"          value="$(arg session_id)"/>
-  <param name="/seliSlam/map_mgr/map_save_dir" value="$(arg map_dir)"/>
-  <param name="/seliSlam/seg/socket_port"     value="$(arg socket_port)"/>
+  <rosparam file="$(arg config)" command="load" ns="/hiper"/>
+  <param name="/hiper/session_id"          value="$(arg session_id)"/>
+  <param name="/hiper/map_mgr/map_save_dir" value="$(arg map_dir)"/>
+  <param name="/hiper/seg/socket_port"     value="$(arg socket_port)"/>
 
   <!-- ── RealSense camera (if not already launched separately) ─────── -->
   <!-- Uncomment if you are not launching the camera node elsewhere:
@@ -53,7 +53,7 @@ Usage:
   -->
 
   <!-- ── VIO front-end ─────────────────────────────────────────────── -->
-  <node pkg="seliSlam" type="vio_frontend_node.py"
+  <node pkg="hiper" type="vio_frontend_node.py"
         name="vio_frontend" output="screen">
     <param name="vio/freeze_encoder" value="true"/>
     <remap from="/camera/color/image_raw"
@@ -65,7 +65,7 @@ Usage:
   </node>
 
   <!-- ── Segmentation (socket bridge to Python 3.12 server) ───────── -->
-  <node pkg="seliSlam" type="segmentation_node.py"
+  <node pkg="hiper" type="segmentation_node.py"
         name="segmentation" output="screen">
     <param name="seg/use_socket_bridge" value="true"/>
     <param name="seg/socket_host"       value="localhost"/>
@@ -73,11 +73,11 @@ Usage:
   </node>
 
   <!-- ── Ephemerality ──────────────────────────────────────────────── -->
-  <node pkg="seliSlam" type="ephemerality_node.py"
+  <node pkg="hiper" type="ephemerality_node.py"
         name="ephemerality" output="screen"/>
 
   <!-- ── Object encoder ────────────────────────────────────────────── -->
-  <node pkg="seliSlam" type="object_encoder_node.py"
+  <node pkg="hiper" type="object_encoder_node.py"
         name="object_encoder" output="screen">
     <!-- Use lighter PointNet on Jetson -->
     <param name="encoder/backbone"  value="pointnet"/>
@@ -85,7 +85,7 @@ Usage:
   </node>
 
   <!-- ── Map manager ───────────────────────────────────────────────── -->
-  <node pkg="seliSlam" type="map_manager_node.py"
+  <node pkg="hiper" type="map_manager_node.py"
         name="map_manager" output="screen"/>
 
   <!-- ── Camera → base_link TF (adjust for your UAV mount) ────────── -->
@@ -101,7 +101,7 @@ Usage:
   <!-- ── Optional RViz (over SSH with X forwarding) ────────────────── -->
   <group if="$(arg rviz)">
     <node pkg="rviz" type="rviz" name="rviz"
-          args="-d $(find seliSlam)/config/seliSlam.rviz"
+          args="-d $(find hiper)/config/hiper.rviz"
           output="screen"/>
   </group>
 

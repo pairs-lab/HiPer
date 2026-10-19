@@ -3,6 +3,6 @@
 string class_label
 float32 epsilon_g_max   # only return objects below this threshold
 ---
-seliSlam/SemanticObject[] objects
+hiper/SemanticObject[] objects
 bool success
 string message

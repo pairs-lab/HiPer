@@ -1,5 +1,5 @@
 """
-seliSlam.map_io.sparsifier
+hiper.map_io.sparsifier
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 KL-divergence map sparsification (ObVi-SLAM §V-B style).
 
@@ -15,7 +15,7 @@ Additionally prunes objects with:
 
 from typing import Dict
 import numpy as np
-from seliSlam.map_io.object_record import ObjectRecord
+from hiper.map_io.object_record import ObjectRecord
 
 
 class KLSparsifier:
