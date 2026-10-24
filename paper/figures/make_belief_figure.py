@@ -34,6 +34,11 @@ def main():
         d = json.load(open(args.selected))
         params = dict(d["families"]["ours"]["params"] if "families" in d
                       else d["hpf"]["params"])
+        # filter parameters only (the retrieval keys K, tau, k_nbr set the
+        # prior, which this figure fixes to a 2-day lifetime)
+        params = {k: v for k, v in params.items()
+                  if k in ("p_miss", "p_false", "kappa0", "variance_gate",
+                           "tau_pi", "tau_v")}
     table = {"Mug": 1.0 / (2.0 * DAY)}
     hpf = HierarchicalPersistenceFilter(lambda_table=table, **params)
     pf = HierarchicalPersistenceFilter(lambda_table=table, learn_rate=False,

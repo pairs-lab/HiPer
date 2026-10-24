@@ -13,9 +13,11 @@
 </p>
 
 <p align="center">
-HiPer predicts which mapped objects will still be where they were last seen. Each dot is a mapped object, coloured by its predicted
-probability of still being there at the next session; a black ring marks an object that actually leaves. Rows: HiPer, PF with learned
-class rates, and Rosen's persistence filter PF(&lambda;), on the same THOR-Lifelong test scene.
+HiPer predicts which mapped objects will still be where they were last seen. Top: the robot's view in four sessions of a
+held-out THOR-Lifelong sequence (HiPer's best case: its largest NLL margin over the strongest of PF(&lambda;), ELite and
+POCD; aggregate results below). Bottom: predicted probability that three objects are still in place at the next session, HiPer
+(solid) vs. Rosen's persistence filter PF(&lambda;) (dashed); dots are the ground truth. Right: NLL of every held-out
+sequence, HiPer vs. PF(&lambda;); HiPer is lower in 116 of 120 (star: the sequence shown).
 </p>
 <br>
 
@@ -41,18 +43,29 @@ class rates, and Rosen's persistence filter PF(&lambda;), on the same THOR-Lifel
 
 HiPer is a **hi**erarchical **per**sistence filter for lifelong object maps:
 
-- **Class level.** Class survival rates are learned from training scenes, keyed by zero-shot CLIP labels
-  (interval-censored exponential fit with Gamma shrinkage).
-- **Object level.** Each class rate becomes a conjugate Beta prior over the object's own survival rate. Both the
-  rate and the object's presence are updated in closed form from in-view detections and misses.
+- **Prior retrieved by appearance and size.** A new object's survival rate is estimated from its K nearest training
+  objects under a combined DINOv2 + CLIP + geometry (extents, height, mask area) distance: their weighted,
+  interval-censored exponential maximum-likelihood rate with Gamma shrinkage to the pooled rate. No class label is
+  needed, so zero-shot label noise does not enter the prior.
+- **Object level.** That rate becomes a conjugate Beta prior over the object's own survival rate. Both the rate and
+  the object's presence are updated in closed form from in-view detections and misses.
 - **Relocation.** When an object is re-identified somewhere else, its learned rate moves with it; only its presence
   restarts.
+- **Environment level (optional).** An online hazard multiplier, learned from all objects of a map, adapts the prior
+  to a world that changes faster or slower than the training scenes.
 
 Objects are matched across sessions by DINOv2 appearance plus a Mahalanobis geometry term (Hungarian assignment).
 
-We evaluate on two benchmarks:
+We evaluate on three benchmarks:
 
-- **THOR-Lifelong**, a new simulated benchmark (AI2-THOR, 60 scenes &times; 8 sessions) with exact ground truth.
+- **THOR-Lifelong**, a new simulated benchmark with exact ground truth: AI2-THOR, 8 sessions per sequence; priors
+  learned on 60 training floor plans, tuning on 20 validation floor plans, and a final evaluation on 120 held-out
+  sequences (three sets of 40 with new change histories on the 40 test-time floor plans; each set was evaluated
+  once, after the method was frozen).
+- **3RScan**, real RGB-D rescans of indoor environments with annotated changes (Wald et al., ICCV 2019): priors from 314
+  training environments, tuning on 71, and a final evaluation on the 47 environments of the official validation split
+  (the official test split hides the transforms and removal lists of its changes), evaluated once after the method was
+  frozen.
 - **ObChange**, real robot data (5 rooms, 26 visits).
 
 ## Installation
@@ -83,7 +96,7 @@ Two pins matter for correctness:
   wrong activation.
 - **numpy** must stay below 2.
 
-4. Check the installation (268 tests, CPU only, about 5 s).
+4. Check the installation (285 tests, CPU only, about 8 s).
 ```bash
 python -m pytest tests/ -q -p no:cacheprovider
 ```
@@ -97,27 +110,41 @@ package through `tests/conftest.py`.
 import sys; sys.path.insert(0, "tests")
 import conftest  # noqa: F401  (registers src/ as the `hiper` package)
 
+import numpy as np
 from hiper.ephemerality.persistence_v2 import HIT, MISS, HierarchicalPersistenceFilter
+from hiper.ephemerality.priors import NeighbourSurvivalPrior
 
 DAY = 86400.0
-hpf = HierarchicalPersistenceFilter(
-    # class survival rates [1/s]; the paper learns them on training scenes
-    lambda_table={"mug": 1 / (3 * DAY), "sofa": 1 / (365 * DAY)},
-    kappa0=16, p_miss=0.1, p_false=0.01, tau_pi=0.3, variance_gate=False)
+rng = np.random.default_rng(0)
+# Training objects: appearance embedding + recorded history (survived exposure S,
+# gaps that ended in a vanish). In the paper: priors.object_exposures(train sessions).
+mugs = [{"emb": [1, 0, 0] + 0.05 * rng.standard_normal(3), "S": 2 * DAY, "gaps": [DAY]} for _ in range(20)]
+sofas = [{"emb": [0, 1, 0] + 0.05 * rng.standard_normal(3), "S": 30 * DAY, "gaps": []} for _ in range(20)]
+prior = NeighbourSurvivalPrior([{**r, "emb": r["emb"] / np.linalg.norm(r["emb"])} for r in mugs + sofas])
 
-hpf.create("mug_1", "mug", t=0.0)
-hpf.observe("mug_1", 0.0, HIT)          # first sighting
-hpf.observe("mug_1", 1 * DAY, HIT)      # seen again next day
-hpf.observe("mug_1", 2 * DAY, MISS)     # in view, not detected
-print(f"P(still there, day 3) = {hpf.presence('mug_1', 3 * DAY):.3f}")   # 0.151
-print(f"E[daily survival p]   = {hpf.rate_mean('mug_1'):.3f}")          # 0.705
-print("prune?", hpf.should_prune("mug_1", 3 * DAY))                     # True
+hpf = HierarchicalPersistenceFilter(
+    rate_fn=lambda e: prior.rate(e, K=30, tau=0.05, k=0.25),   # retrieved prior
+    default_lambda=prior.lam0, use_class_prior=False,
+    kappa0=32, p_miss=0.2, p_false=0.001, tau_pi=0.5, variance_gate=False)
+
+for oid, emb in (("mug_7", [0.98, 0.05, 0.0]), ("sofa_2", [0.02, 1.0, 0.03])):
+    hpf.create(oid, "", t=0.0, emb=np.array(emb))   # embedding of the creating track
+    hpf.observe(oid, 0.0, HIT)
+    print(oid, f"P(still there tomorrow) = {hpf.presence(oid, DAY):.3f}")   # 0.705 / 1.000
+hpf.observe("mug_7", DAY, MISS)                      # in view, not detected
+print("mug_7 after a miss:", f"{hpf.presence('mug_7', 2 * DAY):.3f}")   # 0.224
 ```
 
-The parameters shown are the ones selected on the validation split (`kappa0=16`, `p_miss=0.1`, `p_false=0.01`,
-`tau_pi=0.3`, no variance gate). Every baseline in the paper implements the same `PersistenceModel` interface:
+The example uses DINOv2-like keys only. The paper's prior also uses CLIP and geometry keys:
+`NeighbourSurvivalPrior(records, clip_weight=0.25, geo_weight=1.0)` with records from `priors.object_exposures`,
+queried with `{"dino", "clip", "geo"}`. Parameters selected on the validation split: `kappa0=32`, `p_miss=0.2`,
+`p_false=0.001`, `tau_pi=0.5`, `K=30`, `tau=0.05`, `k=0.25`, retrieval key DINOv2 + CLIP + geometry (the key is
+tuned like any other parameter). Pass `env_alpha=5.0` to add the environment level. Optional post-hoc calibration
+(a logistic map of the log-odds per last-evidence type, fitted on validation predictions) is in
+[calibration.py](src/evaluation/calibration.py). Every
+baseline in the paper implements the same `PersistenceModel` interface:
 [persistence_v2.py](src/ephemerality/persistence_v2.py), [persistence_baselines.py](src/ephemerality/persistence_baselines.py),
-[persistence_pocd.py](src/ephemerality/persistence_pocd.py).
+[persistence_pocd.py](src/ephemerality/persistence_pocd.py); the prior is in [priors.py](src/ephemerality/priors.py).
 
 ## Data
 
@@ -130,13 +157,17 @@ $HIPER_DATA/obchange/{extracted,sessions}
 ### THOR-Lifelong (simulation)
 
 The benchmark is generated with AI2-THOR 5.0.0 (CloudRendering, build `a9ccb07f`, downloaded automatically on first
-use; it needs a Vulkan-capable GPU). It uses the RoomR scene split: 20 train, 20 validation and 20 test scenes,
-each with 8 sessions. Objects move, appear and disappear according to their affordances.
+use; it needs a Vulkan-capable GPU). Splits (RoomR floor plans, 8 sessions each): `train` and `train2` (60 training
+floor plans, FloorPlan1-15 of each room type) learn the priors, `val` (20) tunes every method, and `test3`, `test4`,
+`test5` (40 held-out sequences each, with new change histories, trajectories and duplicates on FloorPlan16-20 and
+26-30 of each room type) are the final evaluation, pooled as `heldout` (120 sequences). `test` and `test2` (20
+each) were evaluated several times during development. Objects move, appear and disappear according to their
+affordances.
 ```bash
-# raw RGB-D sessions + ground truth (~6.3 GB; ~4.5 h on our shared machine)
-for s in train val test; do python scripts/thor_generate_sessions.py --split $s --sessions 8 --jobs 3; done
-# object tracks with CLIP + DINOv2 features -> sessions/<split>/<scene>/session_<kk>.npz (~725 MB)
-python scripts/thor_extract_tracks.py --splits train val test --workers 6
+# raw RGB-D sessions + ground truth (~2.1 GB and ~1-2 h per 20 sequences on our shared machine)
+for s in train train2 val test test2 test3 test4 test5; do python scripts/thor_generate_sessions.py --split $s --sessions 8 --jobs 2; done
+# object tracks with CLIP + DINOv2 features -> sessions/<split>/<scene>/session_<kk>.npz
+python scripts/thor_extract_tracks.py --splits train train2 val test test2 test3 test4 test5 --workers 6
 ```
 
 ### ObChange (real robot)
@@ -147,58 +178,127 @@ it to `$HIPER_DATA/obchange/extracted/<Room>/<sceneN>/`. Then convert it:
 python scripts/obchange_to_sessions.py   # oracle segmentation, rendered CLIP/DINOv2 views
 ```
 
+### 3RScan (real)
+
+Fill in the [3RScan Terms of Use](https://github.com/WaldJohannaU/3RScan) form. Put the public metadata file at
+`$HIPER_DATA/3rscan/public/3RScan.json` (link in the 3RScan repository's `setup.sh`). Then download the files the adapter
+needs (63 GB) and convert them. The protocol is documented in [rscan.py](src/evaluation/rscan.py).
+```bash
+python scripts/rscan_download.py --splits rscan_train rscan_val rscan_test   # sequence.zip unpacked, labels, semseg
+python scripts/rscan_to_sessions.py --splits rscan_train rscan_val
+python scripts/rscan_fit_cov.py --apply rscan_train rscan_val                 # partial-scan covariance, train only
+```
+
 ## Reproduce the paper
 
-Tuning is done on the validation split only. The test split and ObChange are each evaluated once.
+Every choice is made on the validation split (`tune` selects the association, `tune_final` tunes every persistence
+model and writes `final.json`, `calibrate` fits each model's calibration map on validation and writes `calib.json`).
+The held-out sets are evaluated with the frozen configuration and pooled.
 ```bash
-python scripts/tune_and_eval.py tune           --run main   # association + every persistence family (val)
-python scripts/tune_and_eval.py tune_classrate --run main   # class-rate learning on the selected association
-python scripts/tune_and_eval.py tune_final     --run main   # freeze the configuration -> final.json
-python scripts/tune_and_eval.py test           --run main --splits test obchange
-python scripts/tune_and_eval.py loro           --run main   # ObChange leave-one-room-out
+python scripts/tune_and_eval.py tune       --run v5   # association + first persistence grids (val)
+python scripts/tune_and_eval.py tune_final --run v5   # every persistence model on val -> final.json
+python scripts/tune_and_eval.py calibrate  --run v5   # calibration maps on val -> calib.json
+python scripts/tune_and_eval.py test       --run v5 --splits test3 test4 test5   # held-out, after freezing
+python scripts/pool_heldout.py             --run v5 --splits test3 test4 test5   # -> results/v5/heldout
+python scripts/tune_and_eval.py test       --run v5 --splits obchange            # real robot, tuned in simulation
+python scripts/tune_and_eval.py loro       --run v6   # ObChange leave-one-room-out, cross-fitted priors
+                                                      # (copy v5/final.json and v5/calib.json into results/v6 first)
+python scripts/tune_and_eval.py test       --run v3 --splits test test2   # development splits (paper: run v3)
+python scripts/tune_and_eval.py trainsize  --run v3 --train-splits train train2   # val: 4..60 training floor plans
+# 3RScan: tune on rscan_val with priors from rscan_train, freeze, then convert and test rscan_test once
+python scripts/tune_and_eval.py tune --bench rscan --run rscan_v1   # then tune_final, calibrate (same flags)
+python scripts/rscan_to_sessions.py --splits rscan_test --kappa 0.075   # after freezing final.json / calib.json
+python scripts/tune_and_eval.py test --bench rscan --run rscan_v1 --splits rscan_test
 ```
+In the paper each held-out set was first evaluated by one frozen round (test3 by v3, test4 by v4, test5 by v5);
+validation selected the same THOR parameters in all three rounds, so `test3` and `test4` re-run with the v5
+configuration give the same raw predictions and only add the calibrated rows.
+
+Validation-only explorations behind the design choices: [explore_common.py](scripts/explore_common.py) (shared
+cache), [explore_oracle.py](scripts/explore_oracle.py) (true-rate oracle), [explore_priors.py](scripts/explore_priors.py),
+[explore_assoc.py](scripts/explore_assoc.py), [explore_assoc_nll.py](scripts/explore_assoc_nll.py),
+[explore_env.py](scripts/explore_env.py) and the `scripts/explore_w*.py` studies (relocation handling, learned
+evidence model, map-object priors, empirical-Bayes concentration, retrieval keys, recalibration).
 
 Tables, figures and video:
 ```bash
-python paper/figures/make_result_tables.py --run main      # result tables + numbers quoted in the text
-python paper/figures/make_data_numbers.py  --run main      # dataset statistics
-python paper/figures/make_qualitative.py   --mode prob --rule-models ours pf --sessions 2 4 6
-python paper/figures/make_belief_figure.py
+python paper/figures/make_result_tables.py  --run v5 --test-split heldout --loro-run v6 --earlier-run v3
+python paper/figures/make_data_numbers.py   --run v5   # dataset statistics
+python paper/figures/make_extra_results.py  --run v5 --split heldout --loro-run v6 --analysis-run v3
+python paper/figures/make_teaser.py         --run v5 --split heldout   # page-1 teaser (most ground-truth changes)
+python paper/figures/make_qualitative.py    --run v5 --split heldout --mode prob --models ours pf_reloc elite pocd \
+    --rule-models ours pf --sessions 2 4 6 --out paper/figures/qualitative_prob
+python paper/figures/make_qualitative_real.py --run v6 --models ours pf pf_reloc elite pocd   # real robot
+python paper/figures/make_belief_figure.py --selected $HIPER_DATA/hiper_thor/results/v5/final.json
 python scripts/make_video.py --baseline pf
 ```
 
 ## Results
 
-### THOR-Lifelong test (20 scenes)
-
 Lower is better except AUROC. &dagger; marks a method that is significantly worse than HiPer
-(paired bootstrap over scenes, 95% CI).
+(paired bootstrap over sequences, 95% CI; calibrated column: against calibrated HiPer).
 
-| Method | NLL &darr; | Brier &darr; | ECE &darr; | AUROC &uarr; |
+### THOR-Lifelong: 120 held-out sequences (three sets of 40, each evaluated once) and the two development test splits
+
+| Method | NLL &darr; | Brier &darr; | AUROC &uarr; | NLL &darr; calibrated | NLL &darr; dev test | NLL &darr; dev test-B |
+|---|---|---|---|---|---|---|
+| **HiPer (ours)** | **0.265** | **0.081** | **0.911** | **0.260** | **0.270** | **0.245** |
+| PF(&lambda;), relocation-aware | 0.327&dagger; | 0.093&dagger; | 0.830&dagger; | 0.311&dagger; | 0.331&dagger; | 0.298&dagger; |
+| PF(&lambda;) [Rosen et al. 2016] | 0.341&dagger; | 0.097&dagger; | 0.786&dagger; | 0.318&dagger; | 0.340&dagger; | 0.313&dagger; |
+| ELite-style scalar | 0.365&dagger; | 0.104&dagger; | 0.773&dagger; | 0.341&dagger; | 0.363&dagger; | 0.340&dagger; |
+| POCD-style | 0.402&dagger; | 0.127&dagger; | 0.784&dagger; | 0.326&dagger; | 0.397&dagger; | 0.387&dagger; |
+| *Ablations of HiPer (re-tuned)* | | | | | | |
+| &nbsp;&nbsp;PF, retrieved rates (no per-object learning) | 0.274&dagger; | 0.083&dagger; | 0.905&dagger; | 0.263&dagger; | 0.279&dagger; | 0.255&dagger; |
+| &nbsp;&nbsp;HiPer, CLIP class rates (first version) | 0.296&dagger; | 0.085&dagger; | 0.887&dagger; | 0.284&dagger; | 0.296&dagger; | 0.263&dagger; |
+| &nbsp;&nbsp;PF, CLIP class rates | 0.310&dagger; | 0.091&dagger; | 0.869&dagger; | 0.291&dagger; | 0.310&dagger; | 0.282&dagger; |
+
+PF(&lambda;) has the lowest calibration error (ECE 0.045 vs 0.050 raw, 0.041 vs 0.050 calibrated) but ranks objects
+far worse. Ablations on the held-out sequences (NLL): retrieval by DINOv2 only 0.270, rate reset at relocation
+0.270, one pooled rate 0.326. A diagnostic filter given every object's TRUE simulated rate is not better in NLL
+(validation 0.288 vs 0.274) but ranks slightly better (AUROC 0.913 vs 0.906).
+
+### 3RScan, real indoor environments: 47 test environments, evaluated once
+
+| Method | NLL &darr; | Brier &darr; | ECE &darr; | AUROC &uarr; | NLL &darr; calibrated |
+|---|---|---|---|---|---|
+| **HiPer (ours)** | **0.310** | **0.093** | 0.122 | **0.790** | 0.311 |
+| PF(&lambda;), relocation-aware | 0.374&dagger; | 0.108&dagger; | 0.099 (better) | 0.555&dagger; | 0.371&dagger; |
+| PF(&lambda;) [Rosen et al. 2016] | 0.377&dagger; | 0.109&dagger; | 0.098 (better) | 0.522&dagger; | 0.369&dagger; |
+| ELite-style scalar | 0.382&dagger; | 0.110&dagger; | 0.117 | 0.551&dagger; | 0.371&dagger; |
+| POCD-style | 0.375&dagger; | 0.108&dagger; | 0.102 (better) | 0.650&dagger; | 0.364&dagger; |
+| *Ablations of HiPer (re-tuned)* | | | | | |
+| &nbsp;&nbsp;PF, retrieved rates (no per-object learning) | 0.312 | 0.093 | 0.117 | 0.787 | 0.310 |
+| &nbsp;&nbsp;HiPer, CLIP class rates (first version) | 0.322 | 0.097&dagger; | 0.114 | 0.776 | 0.330&dagger; |
+| &nbsp;&nbsp;PF, CLIP class rates | 0.323 | 0.097 | 0.116 | 0.778 | 0.332&dagger; |
+
+&dagger;: significantly worse than HiPer (calibrated column: than calibrated HiPer); "(better)": significantly better
+(paired bootstrap over environments, 95%). The retrieved prior carries the gain on real data: one pooled rate gives
+0.369 and retrieval by DINOv2 alone 0.328 (both significantly worse). Per-object learning and keeping the
+rate across relocations add no significant gain here (0.312 without per-object learning, 0.313 with the rate
+reset). Most environments have only one or two rescans, and a post-hoc check on the 14 with three or more rescans also
+shows no difference, so the per-object gain seen in simulation is not confirmed on 3RScan. As in simulation,
+PF(&lambda;) has the lowest calibration error but ranks objects far worse.
+
+### ObChange real robot (5 rooms): the gains do not carry over
+
+| Method | NLL &darr;, tuned in simulation | NLL &darr;, leave-one-room-out | AUROC &uarr;, leave-one-room-out | NLL &darr;, LORO calibrated |
 |---|---|---|---|---|
-| **HiPer (ours)** | **0.304** | **0.090** | 0.052 | **0.877** |
-| PF, learned class rates | 0.320&dagger; | 0.095&dagger; | 0.060&dagger; | 0.858&dagger; |
-| PF(&lambda;) [Rosen et al. 2016] | 0.350&dagger; | 0.099&dagger; | **0.049** | 0.778&dagger; |
-| ELite-style scalar | 0.363&dagger; | 0.103&dagger; | 0.062 | 0.784&dagger; |
-| POCD-style | 0.397&dagger; | 0.125&dagger; | 0.071&dagger; | 0.793&dagger; |
-| HiPer, hand-set class prior | 0.406&dagger; | 0.113&dagger; | 0.099&dagger; | 0.857&dagger; |
-| Fuse-then-decay | 0.865&dagger; | 0.253&dagger; | 0.324&dagger; | 0.774&dagger; |
+| HiPer (ours) | 1.528 | 0.498 | 0.630 | 0.487 |
+| PF(&lambda;) | 2.398 | **0.427** | 0.544 | 0.446 |
+| PF(&lambda;), relocation-aware | 2.261 | 0.469 | 0.623 | **0.434** |
+| ELite-style scalar | 1.258 | 0.545 | 0.619 | 0.446 |
+| Never forget | 11.597 | 11.597 | 0.500 | 0.445 |
+| *Ablations of HiPer (re-tuned)* | | | | |
+| &nbsp;&nbsp;PF, retrieved rates (no per-object learning) | 1.605 | 0.477 | **0.681** | 0.479 |
+| &nbsp;&nbsp;HiPer, CLIP class rates (first version) | 1.619 | 0.524 | 0.641 | 0.466 |
 
-Ablations (NLL): rate reset at relocation 0.314; pooled rate without class rates 0.322; hand-set prior with CLIP
-labels 0.513.
-
-### ObChange real robot (5 rooms): a negative result
-
-| Method | NLL &darr;, tuned in simulation | NLL &darr;, leave-one-room-out |
-|---|---|---|
-| HiPer (ours) | 1.705 | 0.519 |
-| PF, learned class rates | 1.906 | 0.529 |
-| PF(&lambda;) | 2.613 | **0.429** |
-
-Parameters tuned in simulation are miscalibrated on real data for every method; in that setting the best NLL
-comes from the simple fuse-then-decay rule (0.594). With parameters calibrated on the
-other rooms, the single-rate PF(&lambda;) predicts best. It beats HiPer in all 5 rooms (exact sign-flip test,
-p = 0.0625). The full tables, with Brier, ECE, AUROC and association accuracy, are in the paper.
+Tuned in simulation, every method is miscalibrated (the simple fuse-then-decay rule is best there, 0.594). In the
+leave-one-room-out protocol every method's priors, parameters and calibration map come from the other four rooms,
+and learned priors are cross-fitted (while tuning, each training room is scored with priors from the other three).
+The single-rate PF(&lambda;) still predicts best; it beats HiPer in 4 of 5 rooms (exact sign-flip test, p = 0.125).
+After calibration even the map that never forgets (0.445) matches PF(&lambda;): with few objects and random
+rearrangements, the type of last evidence carries most of the signal. ObChange was analysed in several development
+rounds, so these numbers are weaker evidence than the held-out simulation and 3RScan results.
 
 ## ROS integration (experimental)
 

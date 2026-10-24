@@ -55,3 +55,15 @@ def save(fig, stem):
     fig.savefig(f"{stem}.pdf")
     fig.savefig(f"{stem}.png", dpi=220)
     print(f"  wrote {stem}.pdf / .png")
+
+
+def use_latex_font():
+    """Only the fonts of the paper: Times text (URW Nimbus Roman, the font
+    LaTeX's Times uses) and Times-like math, embedded as TrueType."""
+    mpl.rcParams.update({
+        "pdf.fonttype": 42,
+        "ps.fonttype": 42,
+        "font.family": "serif",
+        "font.serif": ["Nimbus Roman", "Times New Roman", "DejaVu Serif"],
+        "mathtext.fontset": "stix",
+    })

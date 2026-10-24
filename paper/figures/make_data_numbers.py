@@ -62,9 +62,16 @@ def main():
         out.append(f"\\newcommand{{\\{name}}}{{{v.replace(',', '{,}')}}}")
 
     total = Counter()
-    for split, tag in (("train", "Train"), ("val", "Val"), ("test", "Test")):
+    floorplans = set()
+    for split, tag in (("train", "Train"), ("train2", "Traintwo"),
+                       ("val", "Val"), ("test", "Test"),
+                       ("test2", "Testtwo"), ("test3", "Testthree"),
+                       ("test4", "Testfour"), ("test5", "Testfive")):
         files = sorted(glob.glob(str(THOR / "sessions" / split /
                                      "*/session_*.npz")))
+        if not files:
+            continue
+        floorplans |= {Path(f).parent.name for f in files}
         st, acc = split_stats(files)
         total.update(st)
         for k in ("scenes", "sessions", "frames", "tracks", "objects",
@@ -73,19 +80,76 @@ def main():
         put(f"d{tag}ClipAcc", 100.0 * acc, 1)
     for k in ("scenes", "sessions", "frames", "tracks"):
         put(f"dAll{k.capitalize()}", total[k])
+    # pooled held-out sets (each 40 new sequences, evaluated once)
+    held = sorted(f for sp in ("test3", "test4", "test5") for f in glob.glob(
+        str(THOR / "sessions" / sp / "*/session_*.npz")))
+    if held:
+        st, acc = split_stats(held)
+        st["scenes"] = len({Path(f).parent.parent.name + Path(f).parent.name
+                            for f in held})
+        for k in ("scenes", "moved", "appeared", "disappeared", "tracks"):
+            put(f"dHeld{k.capitalize()}", st[k])
+        put("dHeldClipAcc", 100.0 * acc, 1)
+    # sequences = scenes summed over splits (test3 reuses test floor plans
+    # with new histories); distinct floor plans
+    put("dAllSequences", total["scenes"])
+    put("dAllFloorPlans", len(floorplans))
     files = sorted(glob.glob(str(OBC / "*/session_*.npz")))
     st, _ = split_stats(files)
     for k in ("scenes", "sessions", "tracks"):
         put(f"dObc{k.capitalize()}", st[k])
     # per-update cost: test replay time / prediction rows of all models
     res = RESULTS_ROOT / args.run
-    summ = json.load(open(res / "test/summary.json"))
-    n_rows = sum(1 for _ in open(res / "test/pred.jsonl"))
+    split = "test3" if (res / "test3/summary.json").exists() else "test"
+    summ = json.load(open(res / split / "summary.json"))
+    n_rows = sum(1 for _ in open(res / split / "pred.jsonl"))
     t = summ["timing"]["replay_all_models_s"]
     put("dUpdateUs", 1e6 * t / n_rows, 1)
     put("dMapMs", 1e3 * summ["timing"]["mapping_s_per_session"], 0)
+    rscan_numbers(put)
     (ROOT / "paper/figures/data_numbers.tex").write_text("\n".join(out) + "\n")
     print("\n".join(out))
+
+
+def rscan_numbers(put):
+    """3RScan: split sizes, ground-truth transitions and the covariance fit,
+    from the conversion reports of scripts/rscan_to_sessions.py and
+    scripts/rscan_fit_cov.py (nothing if 3RScan was not converted)."""
+    from hiper.evaluation import rscan
+    from hiper.evaluation.paths import RSCAN_META, RSCAN_SESSIONS
+    reps = sorted(RSCAN_SESSIONS.glob("report_*.json"))
+    if not reps or not RSCAN_META.exists():
+        return
+    index = rscan.load_index(str(RSCAN_META))
+    put("dRsEnvsAll", len(index))
+    put("dRsScansAll", sum(1 + len(e["rescans"]) for e in index.values()))
+    envs = {}
+    for r in reps:
+        envs.update(json.load(open(r))["envs"])
+    for split, tag in (("rscan_train", "Train"), ("rscan_val", "Val"),
+                       ("rscan_test", "Test")):
+        E = [e for e in envs.values() if e["split"] == split]
+        if not E:
+            continue
+        c = Counter()
+        for e in E:
+            for t in e["transitions"]:
+                c.update(t)
+        put(f"dRs{tag}Envs", len(E))
+        put(f"dRs{tag}Scans", sum(len(e["scans"]) for e in E))
+        put(f"dRs{tag}Tracks", sum(sum(e["tracks"]) for e in E))
+        for k in ("present", "moved", "removed", "appeared", "unknown"):
+            put(f"dRs{tag}{k.capitalize()}", c.get(k, 0))
+        short = sum(len(e["scans"]) <= 3 for e in E)
+        put(f"dRs{tag}ShortPct", 100.0 * short / len(E), 0)
+    fit = RSCAN_SESSIONS / "cov_fit.json"
+    if fit.exists():
+        f = json.load(open(fit))
+        best = next(g for g in f["grid"] if g["kappa"] == f["kappa"])
+        put("dRsKappa", float(f["kappa"]), 3)
+        put("dRsKappaMoved", 100.0 * best["moved_flagged"], 0)
+        put("dRsKappaStatic", 100.0 * best["static_kept"], 0)
+        put("dRsKappaPairs", int(f["pairs"]))
 
 
 if __name__ == "__main__":
