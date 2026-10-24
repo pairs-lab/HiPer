@@ -294,11 +294,14 @@ class TrackEncoders:
 
     def encode(self, raw_dir: str, n_frames: int, frames: Sequence[int],
                crops: Sequence[Tuple[float, float, float, float]],
-               chunk: int = 128, rgb: Optional[np.ndarray] = None
+               chunk: int = 128, rgb: Optional[np.ndarray] = None,
+               rots: Optional[Sequence[int]] = None
                ) -> Tuple[np.ndarray, np.ndarray]:
         """CLIP and DINOv2 embeddings (L2-normalised) of the square crops.
         Frames stay float16 on the device; each chunk of crops is cut
-        (roi_align, float32) from only the frames it needs."""
+        (roi_align, float32) from only the frames it needs. ``rots``:
+        optional counter-clockwise quarter turns per crop (upright crops
+        from sideways frames, 3RScan)."""
         torch = self.torch
         from torchvision.ops import roi_align
         if len(frames) == 0:
@@ -325,6 +328,10 @@ class TrackEncoders:
                               spatial_scale=1.0, sampling_ratio=-1,
                               aligned=True).clamp_(0.0, 1.0)
                 del sub
+                if rots is not None:
+                    for j, r in enumerate(np.asarray(rots)[idx].tolist()):
+                        if r % 4:
+                            x[j] = torch.rot90(x[j], r, dims=(1, 2))
                 ce[idx] = self.clip.encode(x)
                 with torch.autocast(device_type="cuda", dtype=torch.float16,
                                     enabled=self.device.startswith("cuda")):
@@ -338,13 +345,15 @@ class TrackEncoders:
 
 def build_session(prep: dict, enc: TrackEncoders) -> SessionData:
     """GPU stage: appearance + labels, then assemble the SessionData."""
-    frames, crops, owner = [], [], []
+    frames, crops, owner, rots = [], [], [], []
     for ti, t in enumerate(prep["tracks"]):
         frames += t["frames"]
         crops += t["crops"]
         owner += [ti] * len(t["frames"])
+        rots += t.get("rots", [0] * len(t["frames"]))
+    kw = {"rots": rots} if any(rots) else {}
     clip_e, dino_e = enc.encode(prep["raw_dir"], prep["n_frames"], frames,
-                                crops, rgb=prep.get("rgb"))
+                                crops, rgb=prep.get("rgb"), **kw)
     owner = np.asarray(owner)
     tracks, top5 = [], {}
     for ti, t in enumerate(prep["tracks"]):
@@ -369,11 +378,15 @@ def build_session(prep: dict, enc: TrackEncoders) -> SessionData:
             "dino_model": DINO_MODEL, "clip_top5": top5,
             "min_area_frac": MIN_AREA_FRAC, "crop_pad": CROP_PAD,
             "max_depth_m": MAX_DEPTH_M,
-            "depth_downsample": DEPTH_DS}
+            "depth_downsample": DEPTH_DS, **prep.get("meta", {})}
+    # K_depth: intrinsics of a depth stack stored at its own resolution
+    # (3RScan); otherwise the stack is the frames downsampled by DEPTH_DS
+    K_depth = prep.get("K_depth")
     return SessionData(
         scene=prep["scene"], session_index=int(prep["k"]),
         time=float(gt["time"]), tracks=tracks,
-        T_wc_est=prep["T_wc_est"], K=scale_K(prep["K"]),
+        T_wc_est=prep["T_wc_est"],
+        K=scale_K(prep["K"]) if K_depth is None else np.asarray(K_depth),
         depth_stack=prep["depth_stack"],
         pose_cov=np.asarray(gt["pose_cov"], dtype=np.float64),
         T_wc_gt=prep["T_wc_gt"], gt_objects=gt["objects"], meta=meta)

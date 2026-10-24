@@ -6,6 +6,7 @@ the default is ``~/lifelong_ws/data``:
 
   $HIPER_DATA/hiper_thor/{raw,sessions,results,logs,object_types.json}
   $HIPER_DATA/obchange/{extracted,sessions}
+  $HIPER_DATA/3rscan/{scans/<scan id>,public/3RScan.json,sessions}
 """
 
 import os
@@ -20,3 +21,7 @@ RESULTS_ROOT = THOR_ROOT / "results"
 OBCHANGE_ROOT = DATA_ROOT / "obchange"
 OBCHANGE_EXTRACTED = OBCHANGE_ROOT / "extracted"
 OBCHANGE_SESSIONS = OBCHANGE_ROOT / "sessions"
+RSCAN_ROOT = DATA_ROOT / "3rscan"
+RSCAN_SCANS = RSCAN_ROOT / "scans"
+RSCAN_META = RSCAN_ROOT / "public" / "3RScan.json"
+RSCAN_SESSIONS = RSCAN_ROOT / "sessions"

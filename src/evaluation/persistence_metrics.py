@@ -269,18 +269,23 @@ def maintenance_metrics(rows: Iterable[Mapping],
                        "static_committed"), 0)
     for rs in _object_histories(rows).values():
         ks = [int(r["k"]) for r in rs]
+        known_now = [not _is_null(r["gt_present_now"]) for r in rs]
         present = [_flag(r["gt_present_now"]) for r in rs]
         pruned = [_flag(r["pruned"]) for r in rs]
         committed = [_flag(r["committed"]) for r in rs]
         labels = [None if _is_null(r["label_next"]) else float(r["label_next"])
                   for r in rs]
         c["n_objects"] += 1
-        if any(pruned):
+        if any(pruned) and known_now[pruned.index(True)]:
             c["n_pruned"] += 1
             c["premature_prunes"] += int(present[pruned.index(True)])
         run, gone, departed, stale = 0, False, False, 0
         for j in range(len(rs)):
             contiguous = j > 0 and ks[j] == ks[j - 1] + 1
+            if not known_now[j]:       # unknown state (3RScan): breaks a run
+                run = 0
+                gone = gone or pruned[j]
+                continue
             run = 0 if present[j] else (run + 1 if contiguous else 1)
             gone = gone or pruned[j]
             if run >= stale_after:
@@ -296,7 +301,8 @@ def maintenance_metrics(rows: Iterable[Mapping],
                 c["n_commits"] += 1
                 c["correct_commits"] += int(present[i] and min(later) == 1.0)
         known = [v for v in labels if v is not None]
-        if known and all(present) and min(known) == 1.0:
+        if known and all(p for p, kn in zip(present, known_now) if kn) \
+                and min(known) == 1.0:
             c["n_static"] += 1
             c["static_committed"] += int(any(committed))
     c["premature_prune_rate"] = _ratio(c["premature_prunes"], c["n_pruned"])

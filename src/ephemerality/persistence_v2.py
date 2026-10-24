@@ -10,8 +10,10 @@ Per mapped object j the belief holds
            reference gap dt_ref at the mapped location. Survival over a
            gap dt is p_j ** (dt / dt_ref), i.e. exponential survival with
            rate lambda_j = -ln(p_j) / dt_ref.
-The class prior comes from the open-vocabulary (CLIP) label:
-  E[p_j] = m_c = exp(-lambda_c * dt_ref),  a_j + b_j = kappa0.
+The prior comes from the object's class (CLIP label, lambda_table) or,
+with ``rate_fn``, from the object's own appearance (a rate retrieved from
+similar training objects, priors.NeighbourSurvivalPrior):
+  E[p_j] = m_j = exp(-lambda_j * dt_ref),  a_j + b_j = kappa0.
 
 Session update, predict then update (detection model of Rosen et al.,
 "Towards lifelong feature-based mapping in semi-static environments",
@@ -41,7 +43,7 @@ Decisions
 import math
 from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass
-from typing import Dict, Optional
+from typing import Callable, Dict, Optional
 
 HIT, MISS, NONE = "hit", "miss", "none"
 
@@ -102,6 +104,7 @@ class _HPFState:
     b: float
     t: float
     last_evidence: str = HIT
+    m: Optional[float] = None    # per-object prior mean (rate_fn), else class
 
 
 def _log_beta_moment(a: float, b: float, r: float) -> float:
@@ -135,6 +138,9 @@ class HierarchicalPersistenceFilter(PersistenceModel):
         variance_gate: bool = True,
         m_clip: float = 1e-4,
         relocation_resets_rate: bool = False,
+        rate_fn: Optional[Callable] = None,
+        env_alpha: Optional[float] = None,
+        reloc_hazard_mult: float = 1.0,
     ):
         self.lambda_table = dict(lambda_table or {})
         self.default_lambda = float(default_lambda)
@@ -154,6 +160,21 @@ class HierarchicalPersistenceFilter(PersistenceModel):
         # Ablation: treat a relocated object as a new feature (location-
         # based persistence) instead of carrying its rate belief along.
         self.relocation_resets_rate = bool(relocation_resets_rate)
+        # rate_fn(embedding) -> lambda [1/s]: appearance-retrieved prior;
+        # callers pass the creating track's embedding to create()
+        self.rate_fn = rate_fn
+        self.wants_embedding = rate_fn is not None
+        # Environment level (None = off): every survival exponent is scaled
+        # by gamma ~ Gamma(alpha + O, alpha + H), the ratio of observed (O)
+        # to expected (H, cumulative hazard at gamma = 1) vanishing events
+        # over all objects of this map, learned online.
+        self.env_alpha = None if env_alpha is None else float(env_alpha)
+        # Fixed-rate baselines only (learn_rate=False): an object seen to
+        # relocate gets its hazard multiplied by this factor (a stronger
+        # PF baseline; HiPer learns the same effect through b += pi).
+        self.reloc_hazard_mult = float(reloc_hazard_mult)
+        self._env_H = 0.0
+        self._env_O = 0.0
         self._s: Dict[str, _HPFState] = {}
         if not learn_rate:
             self.name = "pf_class" if use_class_prior else "pf"
@@ -171,20 +192,41 @@ class HierarchicalPersistenceFilter(PersistenceModel):
 
     # ── Survival over a gap ──────────────────────────────────────────────────
 
+    def _mean(self, st: _HPFState) -> float:
+        return st.m if st.m is not None else self.prior_mean(st.class_label)
+
     def _survival(self, st: _HPFState, r: float) -> float:
         if r <= 0.0:
             return 1.0
         if not self.learn_rate:
-            return self.prior_mean(st.class_label) ** r
+            return self._mean(st) ** r
         return math.exp(_log_beta_moment(st.a, st.b, r))
+
+    def env_gamma(self) -> float:
+        """Posterior mean of the environment's hazard multiplier."""
+        if self.env_alpha is None:
+            return 1.0
+        return (self.env_alpha + self._env_O) / (self.env_alpha + self._env_H)
+
+    def _env_expect(self, st: _HPFState, r: float) -> None:
+        """Add the expected vanishing events of one at-risk gap."""
+        if self.env_alpha is not None and r > 0.0:
+            S1 = max(self._survival(st, r), 1e-12)
+            self._env_H += st.pi * -math.log(S1)
 
     # ── Interface ────────────────────────────────────────────────────────────
 
-    def create(self, oid: str, class_label: str, t: float) -> None:
-        m = self.prior_mean(class_label)
+    def create(self, oid: str, class_label: str, t: float,
+               emb=None) -> None:
+        own = None
+        if self.rate_fn is not None and emb is not None:
+            own = math.exp(-float(self.rate_fn(emb)) * self.dt_ref)
+            own = min(max(own, self.m_clip), 1.0 - self.m_clip)
+        m = own if own is not None else self.prior_mean(class_label)
         self._s[oid] = _HPFState(class_label=class_label, pi=self.pi_new,
                                  a=self.kappa0 * m,
-                                 b=self.kappa0 * (1.0 - m), t=float(t))
+                                 b=self.kappa0 * (1.0 - m), t=float(t),
+                                 m=own)
 
     def observe(self, oid: str, t: float, evidence: str,
                 eps_l: float = 0.0, **info) -> None:
@@ -192,7 +234,8 @@ class HierarchicalPersistenceFilter(PersistenceModel):
         if evidence == NONE:
             return
         r = max(0.0, (float(t) - st.t) / self.dt_ref)
-        S = self._survival(st, r)
+        g = self.env_gamma()
+        S = self._survival(st, g * r)
         if evidence == HIT:
             L1, L0 = 1.0 - self.p_miss, self.p_false
             w = 1.0 - min(max(float(eps_l), 0.0), 1.0)
@@ -210,8 +253,11 @@ class HierarchicalPersistenceFilter(PersistenceModel):
         if z <= 0.0:
             return
         w11, w10, w01, w00 = w11 / z, w10 / z, w01 / z, w00 / z
+        if self.env_alpha is not None:
+            self._env_expect(st, r)
+            self._env_O += w10
         if self.learn_rate:
-            st.a += r * w11
+            st.a += g * r * w11
             st.b += w10
         st.pi = w11 + w01
         st.t = float(t)
@@ -221,8 +267,14 @@ class HierarchicalPersistenceFilter(PersistenceModel):
         """The object left its mapped location and was re-identified at a
         new one: count a vanish event, then restart presence there."""
         st = self._s[oid]
+        if self.env_alpha is not None:
+            self._env_expect(st, max(0.0, (float(t) - st.t) / self.dt_ref))
+            self._env_O += st.pi
+        if not self.learn_rate and self.reloc_hazard_mult != 1.0:
+            m = self._mean(st) ** self.reloc_hazard_mult
+            st.m = min(max(m, self.m_clip), 1.0 - self.m_clip)
         if self.relocation_resets_rate:
-            m = self.prior_mean(st.class_label)
+            m = self._mean(st)
             st.a, st.b = self.kappa0 * m, self.kappa0 * (1.0 - m)
         elif self.learn_rate:
             st.b += st.pi
@@ -232,13 +284,13 @@ class HierarchicalPersistenceFilter(PersistenceModel):
 
     def presence(self, oid: str, t: float) -> float:
         st = self._s[oid]
-        r = max(0.0, (float(t) - st.t) / self.dt_ref)
+        r = max(0.0, (float(t) - st.t) / self.dt_ref) * self.env_gamma()
         return st.pi * self._survival(st, r) + (1.0 - st.pi) * self.rho
 
     def rate_mean(self, oid: str) -> float:
         st = self._s[oid]
         if not self.learn_rate:
-            return self.prior_mean(st.class_label)
+            return self._mean(st)
         return st.a / (st.a + st.b)
 
     def rate_var(self, oid: str) -> float:

@@ -41,6 +41,7 @@ from hiper.ephemerality.persistence_v2 import (
     NONE,
     PersistenceModel,
 )
+from hiper.ephemerality.priors import geo_features
 from hiper.evaluation.object_session import SessionData, Track
 from hiper.object_encoder.association_v2 import (
     AssocConfig,
@@ -251,6 +252,16 @@ def _event(o: MapObject, k: int, t: float, ev: str, tr: Optional[Track],
         "visible": visible,
         "n_obs": None if tr is None else int(tr.n_obs),
         "eps_l": 0.0 if tr is None else float(tr.eps_l),
+        # appearance and geometry of the creating track (retrieved prior)
+        "emb": (np.asarray(tr.dino_mean, np.float32)
+                if ev == CREATE and tr is not None
+                and tr.dino_mean is not None else None),
+        "emb_clip": (np.asarray(tr.clip_mean, np.float32)
+                     if ev == CREATE and tr is not None
+                     and tr.clip_mean is not None else None),
+        "geo": (geo_features(tr.extent, float(np.asarray(tr.centroid)[2]),
+                             tr.pixel_area)
+                if ev == CREATE and tr is not None else None),
     }
 
 
@@ -261,13 +272,15 @@ GTTables = Optional[List[Dict[str, dict]]]
 
 def gt_tables(sessions: Sequence[SessionData]) -> GTTables:
     """Per session {gt_id: {present, moved, appeared, group}}; None when a
-    session has no ground truth."""
+    session has no ground truth. ``present`` None marks an unknown state
+    (3RScan: not annotated in that scan); labels spanning it are None."""
     out = []
     for s in sessions:
         if s.gt_objects is None:
             return None
         out.append({str(g["gt_id"]): {
-            "present": bool(g.get("present", True)),
+            "present": (None if "present" in g and g["present"] is None
+                        else bool(g.get("present", True))),
             "moved": bool(g.get("moved_since_prev", False)),
             "appeared": bool(g.get("appeared_since_prev", False)),
             "group": g.get("group"), "type": g.get("type")}
@@ -280,16 +293,22 @@ def gt_labels(gt: GTTables, gt_id: Optional[str], pos_session: int,
     """(gt_present_now, label_next) of a map object whose position was last
     set at ``pos_session`` from GT object ``gt_id`` (design.md row schema):
     1 iff the GT object is present at k (k+1) and has neither moved nor
-    re-appeared since pos_session. label_next is None at the last session."""
+    re-appeared since pos_session. label_next is None at the last session,
+    and either label is None when the object's state is unknown at a
+    session of the span."""
     if gt is None:
         return None, None
 
-    def stays(s_end: int) -> int:
+    def stays(s_end: int) -> Optional[int]:
         e = gt[pos_session].get(gt_id) if gt_id is not None else None
+        if e and e["present"] is None:
+            return None
         if not (e and e["present"]):
             return 0
         for s in range(pos_session + 1, s_end + 1):
             e = gt[s].get(gt_id)
+            if e and e["present"] is None:
+                return None
             if not (e and e["present"]) or e["moved"] or e["appeared"]:
                 return 0
         return 1
@@ -394,6 +413,15 @@ def run_mapping(sessions: Sequence[SessionData], cfg: AssocConfig,
     return stream, assoc_rows
 
 
+def creation_query(ev: dict):
+    """Query of the retrieved prior from a CREATE event: the DINOv2
+    embedding alone (older streams) or {"dino", "clip", "geo"}."""
+    if ev.get("emb_clip") is None and ev.get("geo") is None:
+        return ev.get("emb")
+    return {"dino": ev.get("emb"), "clip": ev.get("emb_clip"),
+            "geo": ev.get("geo")}
+
+
 def apply_event(model: PersistenceModel, oid: str, class_label: str,
                 ev: dict) -> None:
     """Feed one stream event to a persistence model."""
@@ -402,7 +430,10 @@ def apply_event(model: PersistenceModel, oid: str, class_label: str,
         # The creating detection is itself a HIT (as in the draft runner and
         # ELite, which fuse the creation session's evidence); a no-op for the
         # v2 filter, whose presence starts at pi_new = 1 with r = 0.
-        model.create(oid, class_label, t)
+        if getattr(model, "wants_embedding", False):
+            model.create(oid, class_label, t, emb=creation_query(ev))
+        else:
+            model.create(oid, class_label, t)
         model.observe(oid, t, HIT, eps_l=ev["eps_l"], n_obs=ev["n_obs"],
                       score=None)
     elif e == RELOCATE:

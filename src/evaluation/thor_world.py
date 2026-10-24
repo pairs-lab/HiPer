@@ -85,6 +85,22 @@ SPLIT_SCENES = {
     "val": _fp((21, 25), (221, 225), (321, 325), (421, 425)),
     "train": _fp((1, 5), (201, 205), (301, 305), (401, 405)),
     "test": _fp((26, 30), (226, 230), (326, 330), (426, 430)),
+    # added 2026-10-19 from the unused RoomR train scenes: more training
+    # data, and a fresh test set that no tuning or design decision has seen
+    "train2": _fp((6, 15), (206, 215), (306, 315), (406, 415)),
+    "test2": _fp((16, 20), (216, 220), (316, 320), (416, 420)),
+    # added 2026-10-20: NEW sequences (the split name keys every random
+    # stream: change histories, trajectories, duplicates) on the 40
+    # test-time floor plans, for a final held-out evaluation
+    "test3": (_fp((16, 20), (216, 220), (316, 320), (416, 420))
+              + _fp((26, 30), (226, 230), (326, 330), (426, 430))),
+    # added 2026-10-22: another set of new sequences on the same floor plans,
+    # held out for the v4 evaluation (in-fold key choice + calibration)
+    "test4": (_fp((16, 20), (216, 220), (316, 320), (416, 420))
+              + _fp((26, 30), (226, 230), (326, 330), (426, 430))),
+    # added 2026-10-23: new sequences for the v5 evaluation (env. scale)
+    "test5": (_fp((16, 20), (216, 220), (316, 320), (416, 420))
+              + _fp((26, 30), (226, 230), (326, 330), (426, 430))),
 }
 
 
