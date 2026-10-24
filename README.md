@@ -214,25 +214,6 @@ In the paper each held-out set was first evaluated by one frozen round (test3 by
 validation selected the same THOR parameters in all three rounds, so `test3` and `test4` re-run with the v5
 configuration give the same raw predictions and only add the calibrated rows.
 
-Validation-only explorations behind the design choices: [explore_common.py](scripts/explore_common.py) (shared
-cache), [explore_oracle.py](scripts/explore_oracle.py) (true-rate oracle), [explore_priors.py](scripts/explore_priors.py),
-[explore_assoc.py](scripts/explore_assoc.py), [explore_assoc_nll.py](scripts/explore_assoc_nll.py),
-[explore_env.py](scripts/explore_env.py) and the `scripts/explore_w*.py` studies (relocation handling, learned
-evidence model, map-object priors, empirical-Bayes concentration, retrieval keys, recalibration).
-
-Tables, figures and video:
-```bash
-python paper/figures/make_result_tables.py  --run v5 --test-split heldout --loro-run v6 --earlier-run v3
-python paper/figures/make_data_numbers.py   --run v5   # dataset statistics
-python paper/figures/make_extra_results.py  --run v5 --split heldout --loro-run v6 --analysis-run v3
-python paper/figures/make_teaser.py         --run v5 --split heldout   # page-1 teaser (most ground-truth changes)
-python paper/figures/make_qualitative.py    --run v5 --split heldout --mode prob --models ours pf_reloc elite pocd \
-    --rule-models ours pf --sessions 2 4 6 --out paper/figures/qualitative_prob
-python paper/figures/make_qualitative_real.py --run v6 --models ours pf pf_reloc elite pocd   # real robot
-python paper/figures/make_belief_figure.py --selected $HIPER_DATA/hiper_thor/results/v5/final.json
-python scripts/make_video.py --baseline pf
-```
-
 ## Results
 
 Lower is better except AUROC. &dagger; marks a method that is significantly worse than HiPer
@@ -316,8 +297,7 @@ roslaunch hiper hiper_desktop.launch session_id:=0        # Jetson: hiper_jetson
 src/ephemerality/     HiPer filter (persistence_v2.py), baselines, class-rate learning (priors.py)
 src/object_encoder/   cross-session association (association_v2.py)
 src/evaluation/       THOR-Lifelong + ObChange adapters, mapping/replay, metrics, data paths (paths.py)
-scripts/              data generation, tuning/evaluation, video
-paper/figures/        table and figure generators
+scripts/              data generation, conversion, tuning/evaluation
 tests/                unit tests (pytest)
 nodes/, launch/, msg/ ROS pipeline (experimental)
 ```

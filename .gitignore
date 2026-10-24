@@ -1,0 +1,5 @@
+# Kept local, not published: paper material, development explorations, reports
+paper/
+scripts/explore_*.py
+scripts/make_video.py
+docs/reports/
