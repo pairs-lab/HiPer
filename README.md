@@ -13,11 +13,7 @@
 </p>
 
 <p align="center">
-HiPer predicts which mapped objects will still be where they were last seen. Top: the robot's view in four sessions of a
-held-out THOR-Lifelong sequence (HiPer's best case: its largest NLL margin over the strongest of PF(&lambda;), ELite and
-POCD; aggregate results below). Bottom: predicted probability that three objects are still in place at the next session, HiPer
-(solid) vs. Rosen's persistence filter PF(&lambda;) (dashed); dots are the ground truth. Right: NLL of every held-out
-sequence, HiPer vs. PF(&lambda;); HiPer is lower in 116 of 120 (star: the sequence shown).
+HiPer predicts which mapped objects will still be where they were last seen.
 </p>
 <br>
 
@@ -54,24 +50,10 @@ HiPer is a **hi**erarchical **per**sistence filter for lifelong object maps:
 - **Environment level (optional).** An online hazard multiplier, learned from all objects of a map, adapts the prior
   to a world that changes faster or slower than the training scenes.
 
-Objects are matched across sessions by DINOv2 appearance plus a Mahalanobis geometry term (Hungarian assignment).
-
-We evaluate on three benchmarks:
-
-- **THOR-Lifelong**, a new simulated benchmark with exact ground truth: AI2-THOR, 8 sessions per sequence; priors
-  learned on 60 training floor plans, tuning on 20 validation floor plans, and a final evaluation on 120 held-out
-  sequences (three sets of 40 with new change histories on the 40 test-time floor plans; each set was evaluated
-  once, after the method was frozen).
-- **3RScan**, real RGB-D rescans of indoor environments with annotated changes (Wald et al., ICCV 2019): priors from 314
-  training environments, tuning on 71, and a final evaluation on the 47 environments of the official validation split
-  (the official test split hides the transforms and removal lists of its changes), evaluated once after the method was
-  frozen.
-- **ObChange**, real robot data (5 rooms, 26 visits).
 
 ## Installation
 
-Tested on Ubuntu 20.04, Python 3.12, CUDA 12.8 and an RTX 4070 Ti. A GPU is needed only to extract CLIP/DINOv2
-features and to render AI2-THOR scenes. Tuning, evaluation and the filter itself run on the CPU.
+Tested on Ubuntu 20.04, Python 3.12, CUDA 12.8 and an RTX 4070 Ti.
 
 1. Clone the repository.
 ```bash
@@ -156,13 +138,7 @@ $HIPER_DATA/obchange/{extracted,sessions}
 
 ### THOR-Lifelong (simulation)
 
-The benchmark is generated with AI2-THOR 5.0.0 (CloudRendering, build `a9ccb07f`, downloaded automatically on first
-use; it needs a Vulkan-capable GPU). Splits (RoomR floor plans, 8 sessions each): `train` and `train2` (60 training
-floor plans, FloorPlan1-15 of each room type) learn the priors, `val` (20) tunes every method, and `test3`, `test4`,
-`test5` (40 held-out sequences each, with new change histories, trajectories and duplicates on FloorPlan16-20 and
-26-30 of each room type) are the final evaluation, pooled as `heldout` (120 sequences). `test` and `test2` (20
-each) were evaluated several times during development. Objects move, appear and disappear according to their
-affordances.
+The benchmark is generated with AI2-THOR 5.0.0.
 ```bash
 # raw RGB-D sessions + ground truth (~2.1 GB and ~1-2 h per 20 sequences on our shared machine)
 for s in train train2 val test test2 test3 test4 test5; do python scripts/thor_generate_sessions.py --split $s --sessions 8 --jobs 2; done
@@ -191,9 +167,6 @@ python scripts/rscan_fit_cov.py --apply rscan_train rscan_val                 # 
 
 ## Reproduce the paper
 
-Every choice is made on the validation split (`tune` selects the association, `tune_final` tunes every persistence
-model and writes `final.json`, `calibrate` fits each model's calibration map on validation and writes `calib.json`).
-The held-out sets are evaluated with the frozen configuration and pooled.
 ```bash
 python scripts/tune_and_eval.py tune       --run v5   # association + first persistence grids (val)
 python scripts/tune_and_eval.py tune_final --run v5   # every persistence model on val -> final.json
@@ -247,18 +220,7 @@ far worse. Ablations on the held-out sequences (NLL): retrieval by DINOv2 only 0
 | PF(&lambda;) [Rosen et al. 2016] | 0.377&dagger; | 0.109&dagger; | 0.098 (better) | 0.522&dagger; | 0.369&dagger; |
 | ELite-style scalar | 0.382&dagger; | 0.110&dagger; | 0.117 | 0.551&dagger; | 0.371&dagger; |
 | POCD-style | 0.375&dagger; | 0.108&dagger; | 0.102 (better) | 0.650&dagger; | 0.364&dagger; |
-| *Ablations of HiPer (re-tuned)* | | | | | |
-| &nbsp;&nbsp;PF, retrieved rates (no per-object learning) | 0.312 | 0.093 | 0.117 | 0.787 | 0.310 |
-| &nbsp;&nbsp;HiPer, CLIP class rates (first version) | 0.322 | 0.097&dagger; | 0.114 | 0.776 | 0.330&dagger; |
-| &nbsp;&nbsp;PF, CLIP class rates | 0.323 | 0.097 | 0.116 | 0.778 | 0.332&dagger; |
 
-&dagger;: significantly worse than HiPer (calibrated column: than calibrated HiPer); "(better)": significantly better
-(paired bootstrap over environments, 95%). The retrieved prior carries the gain on real data: one pooled rate gives
-0.369 and retrieval by DINOv2 alone 0.328 (both significantly worse). Per-object learning and keeping the
-rate across relocations add no significant gain here (0.312 without per-object learning, 0.313 with the rate
-reset). Most environments have only one or two rescans, and a post-hoc check on the 14 with three or more rescans also
-shows no difference, so the per-object gain seen in simulation is not confirmed on 3RScan. As in simulation,
-PF(&lambda;) has the lowest calibration error but ranks objects far worse.
 
 ### ObChange real robot (5 rooms): the gains do not carry over
 
@@ -269,17 +231,7 @@ PF(&lambda;) has the lowest calibration error but ranks objects far worse.
 | PF(&lambda;), relocation-aware | 2.261 | 0.469 | 0.623 | **0.434** |
 | ELite-style scalar | 1.258 | 0.545 | 0.619 | 0.446 |
 | Never forget | 11.597 | 11.597 | 0.500 | 0.445 |
-| *Ablations of HiPer (re-tuned)* | | | | |
-| &nbsp;&nbsp;PF, retrieved rates (no per-object learning) | 1.605 | 0.477 | **0.681** | 0.479 |
-| &nbsp;&nbsp;HiPer, CLIP class rates (first version) | 1.619 | 0.524 | 0.641 | 0.466 |
 
-Tuned in simulation, every method is miscalibrated (the simple fuse-then-decay rule is best there, 0.594). In the
-leave-one-room-out protocol every method's priors, parameters and calibration map come from the other four rooms,
-and learned priors are cross-fitted (while tuning, each training room is scored with priors from the other three).
-The single-rate PF(&lambda;) still predicts best; it beats HiPer in 4 of 5 rooms (exact sign-flip test, p = 0.125).
-After calibration even the map that never forgets (0.445) matches PF(&lambda;): with few objects and random
-rearrangements, the type of last evidence carries most of the signal. ObChange was analysed in several development
-rounds, so these numbers are weaker evidence than the held-out simulation and 3RScan results.
 
 ## ROS integration (experimental)
 
